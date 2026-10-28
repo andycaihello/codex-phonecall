@@ -1,0 +1,12 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "连接已配对的电脑，在电脑上使用蓝牙通话与字幕。"
+    },
+    {
+      "name": "bluetooth_reason",
+      "value": "读取已配对设备，并与您选择的电脑建立通话连接"
+    }
+  ]
+}

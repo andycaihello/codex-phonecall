@@ -1,0 +1,20 @@
+{
+  "name": "codex-phonecall",
+  "interface": {
+    "displayName": "PhoneBridge 通话桥"
+  },
+  "plugins": [
+    {
+      "name": "phonebridge",
+      "source": {
+        "source": "local",
+        "path": "./plugins/phonebridge"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>PhoneBridge · 通话控制台</title>
+  <style>
+    :root{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:#182231;background:#f4f6f9;font-size:13px;line-height:1.5;--surface:#fff;--muted:#6c7687;--line:#e3e7ee;--ink:#182231;--accent:#245eea;--soft:#edf3ff;--danger:#b73440;--input:#fff}
+    *{box-sizing:border-box}body{margin:0;min-width:300px}button,input,textarea,select{font:inherit}button,a,input,textarea,select{touch-action:manipulation}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.43}button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #81a8ff;outline-offset:2px}button{border:1px solid var(--line);border-radius:9px;min-height:35px;padding:7px 12px;background:var(--surface);color:var(--ink);font-weight:560;white-space:nowrap;transition:background .12s}button:hover:not(:disabled){background:#f1f4f9}button.primary{background:var(--accent);border-color:var(--accent);color:white}button.primary:hover:not(:disabled){background:#174fd6}button.danger{color:var(--danger);background:#fff5f5;border-color:#f2dadd}button.danger:hover:not(:disabled){background:#ffebed}button.quiet{background:transparent;min-height:30px;padding:4px 8px}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}h1,h2,p{margin:0}h1{font-size:19px;letter-spacing:-.6px;font-weight:680}h2{font-size:13px;font-weight:650}[hidden]{display:none!important}
+    .shell{max-width:720px;margin:0 auto;padding:20px 16px 28px}.heading{display:flex;align-items:center;gap:10px;margin-bottom:14px}.mark{width:33px;height:33px;display:grid;place-items:center;background:var(--accent);color:#fff;border-radius:10px}.mark svg{width:19px;height:19px}.heading-copy{flex:1}.eyebrow{font-size:10px;color:var(--muted);letter-spacing:1.2px;margin-top:1px}.badge{font-size:11px;display:inline-flex;align-items:center;gap:5px;color:var(--muted);white-space:nowrap}.dot{width:6px;height:6px;border-radius:50%;background:#a6aebb;flex:none}.badge.ok{color:#258052}.badge.ok .dot{background:#2f9a64}.badge.warn{color:#a66e15}.badge.warn .dot{background:#cf9332}.badge.bad{color:var(--danger)}.badge.bad .dot{background:var(--danger)}
+    .status-strip{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px}.status-item{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:10px}.status-label{color:var(--muted);font-size:11px}.status-value{font-size:12px;font-weight:600}.status-copy{color:var(--muted);font-size:12px;padding:0 2px;margin-bottom:13px;overflow-wrap:anywhere;min-height:18px}
+    .card{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:14px;margin-top:11px}.phone-card{margin-bottom:12px}.phone-card .card-head{margin-bottom:7px}.phone-choice{display:flex;gap:7px}.phone-choice select{min-width:0;flex:1}.pairing-box{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);margin-top:9px;padding-top:10px}.pairing-box div{min-width:0}.pairing-box strong{font-size:11px;font-weight:620}.pairing-box p{font-size:10px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}.card-head{display:flex;align-items:center;gap:8px;justify-content:space-between;margin-bottom:12px}.card-head .badge{font-size:10px}.modes{display:grid;grid-template-columns:1fr 1fr;background:#f1f3f7;border-radius:9px;padding:3px;margin-bottom:13px;gap:3px}.mode-label{position:relative;min-width:0}.mode-label input{position:absolute;opacity:0;width:1px;height:1px}.mode-label span{display:block;border:1px solid transparent;text-align:center;border-radius:7px;padding:7px 3px;font-size:12px;font-weight:570;cursor:pointer;color:var(--muted)}.mode-label input:checked+span{background:var(--surface);box-shadow:0 1px 3px #14274b12;color:var(--accent);border-color:#dae4fc}.mode-label input:focus-visible+span{outline:3px solid #81a8ff}.mode-label input:disabled+span{cursor:not-allowed;opacity:.6}.field{display:block;margin:10px 0 0}.field-label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px}.row{display:flex;align-items:flex-start;gap:9px}.grow{flex:1;min-width:0}.duration{width:91px;flex:none}input[type=text],input[type=tel],input[type=password],textarea,select{width:100%;border:1px solid #d9dfe8;border-radius:8px;background:var(--input);color:var(--ink);padding:8px 9px;min-height:36px}textarea{resize:vertical;min-height:78px;max-height:220px;line-height:1.65}input:disabled,textarea:disabled,select:disabled{color:var(--muted);background:#f7f8fa;opacity:.8}.number{font-variant-numeric:tabular-nums;letter-spacing:.35px}.hint{font-size:11px;color:var(--muted);margin-top:7px;overflow-wrap:anywhere}.lock-note{display:flex;align-items:flex-start;gap:6px;background:#f5f7fa;color:var(--muted);padding:8px 9px;border-radius:7px;font-size:11px;margin-bottom:10px}.save-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:9px}.draft-note{font-size:11px;color:#98712a}.actions{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:7px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}.actions button{padding-left:5px;padding-right:5px}.minor-actions{display:flex;gap:7px;margin-top:9px}.minor-actions>*{flex:1}
+    .setup-title{display:flex;align-items:center;gap:7px}.step-number{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--soft);color:var(--accent);font-size:10px;font-weight:700}.permissions{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.permission{padding:4px 8px;border:1px solid var(--line);border-radius:6px;font-size:11px;display:inline-flex;gap:5px;align-items:center}.permission strong{font-weight:500;color:var(--muted)}.permission.authorized strong{color:#258052}.permission.denied strong,.permission.restricted strong{color:var(--danger)}.setup-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.handoff{background:var(--soft);border-radius:8px;padding:10px 11px;color:#3c507a;font-size:11px;margin-top:10px;line-height:1.8}.handoff strong{font-weight:600}.check-row{display:flex;gap:8px;align-items:flex-start;font-size:11px;line-height:1.65;cursor:pointer;margin:10px 0}.check-row input{width:14px;height:14px;margin:3px 0 0;accent-color:var(--accent);flex:none}.full{width:100%}.restore-area{border-top:1px solid var(--line);margin-top:12px;padding-top:2px}.key-row{display:flex;gap:7px}.key-row input{min-width:0;flex:1}.key-status{display:flex;justify-content:space-between;align-items:center;margin:5px 0 9px;min-height:25px}.key-status span{font-size:11px;color:var(--muted)}.consent{background:#f6f8fb;border-radius:8px;padding:9px 10px;margin:10px 0}.consent .check-row{margin:0}.service-result{font-size:11px;color:var(--muted);margin-top:7px;overflow-wrap:anywhere}.service-row{display:flex;gap:8px}.service-row button:first-child{flex:1}.voice-select{width:102px;margin-top:0}.voice-select select{min-height:35px;padding:6px 8px}
+    .feedback{display:flex;align-items:flex-start;gap:8px;background:#fff5e8;border:1px solid #f0dbbb;color:#8d5f25;border-radius:9px;padding:9px 11px;margin:10px 0;font-size:12px;overflow-wrap:anywhere}.feedback.error{color:var(--danger);background:#fff2f3;border-color:#f0d2d6}.feedback.success{color:#267348;background:#f0faf4;border-color:#d4eadc}.feedback span{flex:1}.feedback button{border:0;background:transparent;color:inherit;padding:0;min-height:20px;line-height:20px;font-size:17px}.backend-error{color:var(--danger);font-size:11px;overflow-wrap:anywhere;margin:9px 1px 0}
+    .transcript-card{padding-bottom:10px}.transcript-card .card-head{margin-bottom:8px}.live-state{font-size:10px;display:flex;align-items:center;gap:5px;color:var(--muted)}.live-state.listening{color:#258052}.live-state.listening .dot{background:#2f9a64}.transcript{max-height:420px;min-height:100px;overflow-y:auto;scrollbar-width:thin;overscroll-behavior:contain;scroll-behavior:auto}.empty{padding:26px 10px;text-align:center;font-size:12px;color:var(--muted)}.caption{padding:10px 0;border-top:1px solid #edf0f4}.caption:first-child{border-top:0}.caption-head{display:flex;gap:7px;align-items:center;font-size:10px;margin-bottom:4px;color:var(--muted)}.role{color:#4b5f7c;font-weight:600}.caption.ai .role{color:var(--accent)}.partial-label{font-size:9px;color:#8792a5;background:#f0f3f8;padding:1px 5px;border-radius:4px}.caption-text{font-size:13px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}.caption.partial .caption-text{color:#61718a}.transcript-foot{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:8px;margin-top:5px;gap:8px}.transcript-foot span{font-size:10px;color:var(--muted)}.scroll-button{font-size:10px!important;min-height:25px!important;padding:2px 6px!important}
+    details{margin:12px 2px 0;color:var(--muted);font-size:11px}summary{cursor:pointer;user-select:none;padding:4px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;line-height:1.7;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;max-height:260px;overflow:auto}.footer{font-size:10px;color:#929baa;text-align:center;margin-top:16px}.spinner{display:inline-block;width:8px;height:8px;border:1.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+    @media(min-width:600px){.shell{padding:24px}.workspace{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.workspace .card{margin-top:0}.transcript-card{margin-top:12px}.heading{margin-bottom:18px}.transcript{max-height:470px}.setup-column>.card+.card{margin-top:12px}}
+    @media(max-width:360px){.shell{padding:14px 10px}.card{padding:12px}.actions{gap:5px}.actions button{font-size:12px}.badge{font-size:10px}.duration{width:83px}}
+    @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+    @media(prefers-color-scheme:dark){:root{--surface:#1d2330;--muted:#9aa7bb;--line:#333d50;--ink:#e7edf7;--accent:#7da6ff;--soft:#263653;--input:#181f2c;background:#141923;color:var(--ink)}.modes,.lock-note{background:#161c27}.mode-label input:checked+span{border-color:#435b87}.status-copy,.hint{color:var(--muted)}input[type=text],input[type=tel],input[type=password],textarea,select{border-color:#3b465a}input:disabled,textarea:disabled,select:disabled{background:#1a202b}button:hover:not(:disabled){background:#2a3447}button.primary{background:#487fed;border-color:#487fed;color:white}button.primary:hover:not(:disabled){background:#598bf0}button.danger{background:#35242b;color:#ffb4bb;border-color:#61414b}button.danger:hover:not(:disabled){background:#482c34}.handoff{color:#c0d0ee}.consent{background:#19212e}.permission.authorized strong,.badge.ok,.live-state.listening{color:#7ac69b}.permission.denied strong,.permission.restricted strong,.backend-error{color:#ffb4bb}.caption{border-color:#30394a}.role{color:#b8c8e2}.partial-label{background:#303c51;color:#b6c5de}.caption.partial .caption-text{color:#a5b6d0}.feedback{color:#e6be84;background:#392f23;border-color:#60503a}.feedback.error{color:#ffbdc5;background:#38252e;border-color:#69434e}.feedback.success{color:#a2d9b7;background:#24392e;border-color:#3b5c47}.draft-note{color:#d4b781}.footer{color:#758199}}
+  </style>
+</head>
+<body>
+<main class="shell">
+  <header class="heading">
+    <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7.1 3.5 4.5 4.7c-1 .5-.7 3.4.8 6.3a19.9 19.9 0 0 0 7.7 7.7c2.9 1.5 5.8 1.8 6.3.8l1.2-2.6-4.3-2.7-1.8 1.8a14.3 14.3 0 0 1-6.4-6.4l1.8-1.8-2.7-4.3Z"/><path d="M14 4a6 6 0 0 1 6 6M14 7a3 3 0 0 1 3 3"/></svg></div>
+    <div class="heading-copy"><h1>通话控制台</h1><div class="eyebrow">PHONEBRIDGE</div></div>
+    <div id="backend-badge" class="badge"><span class="dot"></span><span id="backend-label">连接后台中</span></div>
+  </header>
+  <div class="status-strip" aria-label="设备与通话状态">
+    <div class="status-item"><span class="status-label">手机</span><span class="status-value" id="phone-state">—</span></div>
+    <div class="status-item"><span class="status-label">通话</span><span class="status-value" id="call-state">—</span></div>
+  </div>
+  <p class="status-copy" id="status-copy">正在读取状态…</p>
+  <div id="feedback" class="feedback" role="status" hidden><span id="feedback-text"></span><button id="dismiss-feedback" type="button" aria-label="关闭提示">×</button></div>
+  <section class="card phone-card" aria-labelledby="phone-title">
+    <div class="card-head"><h2 id="phone-title">配对手机</h2><button id="refresh-phones" class="quiet" type="button" disabled>刷新列表</button></div>
+    <div class="phone-choice"><select id="paired-phone" aria-label="选择已配对的手机" disabled><option value="">请选择手机</option></select><button id="select-phone" type="button" disabled>使用这部手机</button></div>
+    <div class="key-status"><span id="phone-selection-status">先在 macOS 蓝牙设置中完成配对。</span><button id="forget-phone" class="quiet" type="button" disabled>取消选择</button></div>
+    <div class="pairing-box">
+      <div><strong>通话音频配对</strong><p id="pairing-status">仅在手机通话界面没有蓝牙路由时使用。</p></div>
+      <button id="audio-pairing" type="button" disabled>准备重新配对</button>
+    </div>
+  </section>
+  <div class="workspace">
+    <section class="card" aria-labelledby="task-title">
+      <div class="card-head"><h2 id="task-title">本次通话</h2><span id="lease-badge" class="badge" hidden><span class="dot"></span>Codex 任务使用中</span></div>
+      <div id="lock-note" class="lock-note" hidden>当前任务已固定号码与语音方案，结束并恢复音频后可修改。</div>
+      <div class="modes" role="radiogroup" aria-label="语音方案">
+        <label class="mode-label"><input type="radio" name="mode" value="builtin_voice" checked disabled><span>Codex / ChatGPT 语音</span></label>
+        <label class="mode-label"><input type="radio" name="mode" value="openai_realtime" disabled><span>OpenAI Realtime</span></label>
+      </div>
+      <div class="row">
+        <label class="field grow"><span class="field-label">目标号码</span><input id="number" class="number" type="tel" inputmode="tel" autocomplete="off" spellcheck="false" placeholder="输入电话号码" maxlength="16" disabled></label>
+        <label class="field duration"><span class="field-label">最长通话</span><select id="duration" disabled><option value="60">60 秒</option><option value="180">180 秒</option><option value="300">300 秒</option><option id="custom-duration" hidden></option></select></label>
+      </div>
+      <label class="field"><span class="field-label">交给 AI 的任务</span><textarea id="instructions" rows="3" placeholder="例如：询问业务办理条件，核实所需材料，并把结果告诉我。" maxlength="6000" disabled></textarea></label>
+      <div class="save-row"><span id="draft-note" class="draft-note"> </span><button id="save-config" class="quiet" type="button" disabled>保存设置</button></div>
+      <div class="actions"><button id="connection" type="button" disabled>连接手机</button><button id="dial" class="primary" type="button" disabled>打开手机拨号</button><button id="hangup" class="danger" type="button" disabled>结束通话</button></div>
+      <p id="dial-hint" class="hint">准备好语音后，在手机系统界面确认拨号。</p>
+      <div id="api-interrupt-row" class="minor-actions" hidden><button id="interrupt" type="button" disabled>打断 AI，听对方说话</button></div>
+      <p id="backend-error" class="backend-error" hidden></p>
+    </section>
+    <div class="setup-column">
+      <section id="builtin-panel" class="card" aria-labelledby="builtin-title">
+        <div class="card-head"><div class="setup-title"><span class="step-number">1</span><h2 id="builtin-title">准备内置语音</h2></div><span id="route-badge" class="badge"><span class="dot"></span><span id="route-label">未准备</span></span></div>
+        <div class="permissions"><span id="microphone-permission" class="permission">麦克风 <strong>—</strong></span><span id="speech-permission" class="permission">字幕识别 <strong>—</strong></span></div>
+        <div class="setup-actions"><button id="permissions" type="button" disabled>允许麦克风与字幕</button><button id="prepare-builtin" type="button" disabled>准备音频</button></div>
+        <div class="handoff">在<strong>当前 Codex 对话</strong>中，选择手机作为麦克风，再启动语音聊天。这里不会自动启动语音。</div>
+        <label class="check-row"><input id="voice-confirmation" type="checkbox" disabled><span id="voice-confirmation-label">我已启动当前对话的语音，并选择手机麦克风</span></label>
+        <p id="continuous-note" class="hint" hidden>连续模式只需启动一次 Codex 语音，随后可以挂断并拨打其他号码。当前使用系统默认输出接入电话；其他应用的声音也可能进入电话。</p>
+        <button id="confirm-builtin" class="primary full" type="button" disabled>确认语音已就绪</button>
+        <div id="restore-area" class="restore-area" hidden>
+          <label class="check-row"><input id="voice-stopped" type="checkbox" disabled><span>我已在 Codex / ChatGPT 停止语音聊天</span></label>
+          <button id="restore-audio" class="full" type="button" disabled>恢复原音频设备</button>
+          <p class="hint">挂断电话后，先停止语音，再恢复音频。</p>
+        </div>
+      </section>
+      <section id="api-panel" class="card" aria-labelledby="api-title" hidden>
+        <div class="card-head"><h2 id="api-title">Realtime 语音服务</h2><a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">获取密钥 ↗</a></div>
+        <label class="field-label" for="api-key">OpenAI API 密钥</label>
+        <div class="key-row"><input id="api-key" type="password" autocomplete="new-password" spellcheck="false" autocapitalize="off" placeholder="输入新密钥" maxlength="512" disabled><button id="save-key" type="button" disabled>保存</button></div>
+        <div class="key-status"><span id="key-status">尚未读取密钥状态</span><button id="remove-key" class="quiet" type="button" disabled>移除密钥</button></div>
+        <div class="consent"><label class="check-row"><input id="api-consent" type="checkbox" disabled><span>允许将本轮通话音频发送给 OpenAI API，并使用独立计费的 API 额度</span></label></div>
+        <div class="service-row"><button id="check-service" type="button" disabled>检查语音服务</button><label class="voice-select"><span class="field-label">声音</span><select id="voice" aria-label="Realtime 声音" disabled><option value="marin">Marin</option><option value="cedar">Cedar</option></select></label><button id="cancel-service" type="button" hidden>取消检查</button></div>
+        <p id="service-result" class="service-result">保存密钥并允许 API 使用后，可先检查服务。</p>
+      </section>
+    </div>
+  </div>
+  <section class="card transcript-card" aria-labelledby="transcript-title">
+    <div class="card-head"><h2 id="transcript-title">实时字幕</h2><span id="live-state" class="live-state"><span class="dot"></span><span id="live-label">等待通话</span></span></div>
+    <div id="transcript" class="transcript" role="log" aria-label="通话字幕" aria-live="polite" aria-relevant="additions text"><p class="empty">通话开始后，对方和 AI 的字幕会显示在这里。</p></div>
+    <div class="transcript-foot"><span id="caption-note">双方字幕由本机语音识别，可能继续修订；AI 字幕为我方输出转写。</span><button id="scroll-latest" class="quiet scroll-button" type="button" hidden>回到最新 ↓</button></div>
+  </section>
+  <details id="diagnostics"><summary>诊断摘要</summary><pre id="diagnostic-text">正在读取…</pre><button id="validate-bluetooth" class="quiet" type="button" disabled>验证蓝牙拨号与声音</button><button id="inspect-dialer" hidden class="quiet" type="button" disabled>检查手机拨号页面</button><p>验证仅拨打已配置号码，通过蓝牙控制拨号与挂断；不会操作手机系统界面。</p><button id="prepare-validation" hidden class="quiet" type="button" disabled>准备本机声音验证</button><button id="send-validation" class="quiet" type="button" disabled>发送一次测试语音</button><p>准备时不采集声音；手机开始呼叫后启动本机音频与字幕。确认对方接听后再发送测试语音。时限使用上方保存的通话时长。</p><p id="validation-window" aria-live="polite"></p></details>
+  <p class="footer">本机通话桥 <span id="version"></span></p>
+</main>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const modeInputs = Array.from(document.querySelectorAll('input[name="mode"]'));
+  const pending = new Set();
+  const permissions = {authorized:'已允许',notDetermined:'待允许',denied:'未允许',restricted:'受限制'};
+  const encoder = new TextEncoder();
+  let state = null, online = false, dirty = false, pollInFlight = false, commandSerial = 0, stateRevision = 0;
+  let transcriptSignature = '', followLatest = true, previousRouteActive = false;
+  let phoneChoice = '', phonesSignature = '';
+  const selectedMode = () => modeInputs.find(input => input.checked)?.value || 'builtin_voice';
+  const activeCall = s => !!(s.callActive || s.callPending);
+  const idle = s => !s.busy && !activeCall(s) && !s.voiceServiceChecking;
+  const anyPending = () => pending.size > 0;
+  const setText = (id, value) => { $(id).textContent = typeof value === 'string' ? value : ''; };
+  function feedback(message, kind = '') {
+    setText('feedback-text', message); $('feedback').className = 'feedback' + (kind ? ' ' + kind : '');
+    $('feedback').hidden = !message;
+  }
+  function draft() {
+    return {action:'configure',modeID:selectedMode(),number:$('number').value.trim(),instructions:$('instructions').value,
+      maximumSeconds:Number($('duration').value),voice:$('voice').value};
+  }
+  function validDraft() {
+    const d = draft();
+    return /^\+?[0-9]{3,15}$/.test(d.number) && d.instructions.trim().length > 0 &&
+      encoder.encode(d.instructions).length <= 6000 && Number.isInteger(d.maximumSeconds) && d.maximumSeconds >= 1 && d.maximumSeconds <= 300;
+  }
+  function setDraft(s) {
+    modeInputs.forEach(input => { input.checked = input.value === s.modeID; });
+    $('number').value = typeof s.number === 'string' ? s.number : '';
+    $('instructions').value = typeof s.instructions === 'string' ? s.instructions : '';
+    const seconds = Number.isInteger(s.maximumSeconds) ? s.maximumSeconds : 60;
+    const custom = $('custom-duration'); custom.hidden = [60,180,300].includes(seconds);
+    custom.value = String(seconds); custom.textContent = seconds + ' 秒';
+    $('duration').value = String(seconds); $('voice').value = s.voice === 'cedar' ? 'cedar' : 'marin';
+  }
+  function badge(id, kind) { $(id).className = 'badge' + (kind ? ' ' + kind : ''); }
+  function renderPermission(id, value) {
+    const item = $(id); item.className = 'permission ' + (Object.hasOwn(permissions,value) ? value : '');
+    item.querySelector('strong').textContent = permissions[value] || '未知';
+  }
+  function renderTranscript(s) {
+    const lines = Array.isArray(s.transcript) ? s.transcript.slice(-100).filter(line => line && typeof line.text === 'string') : [];
+    const signature = JSON.stringify(lines.map(line => [line.id,line.role,line.text,line.final]));
+    if (signature === transcriptSignature) return;
+    transcriptSignature = signature;
+    const box = $('transcript'), oldTop = box.scrollTop, fragment = document.createDocumentFragment();
+    if (!lines.length) {
+      const empty = document.createElement('p'); empty.className = 'empty';
+      empty.textContent = '通话开始后，对方和 AI 的字幕会显示在这里。'; fragment.append(empty);
+    } else for (const line of lines) {
+      const entry = document.createElement('article'), head = document.createElement('div');
+      const role = typeof line.role === 'string' ? line.role : '对方';
+      entry.className = 'caption' + (/^(AI|assistant)$/i.test(role) ? ' ai' : '') + (line.final === true ? '' : ' partial');
+      head.className = 'caption-head';
+      const label = document.createElement('span'); label.className = 'role'; label.textContent = role; head.append(label);
+      if (line.final !== true) { const partial = document.createElement('span'); partial.className = 'partial-label'; partial.textContent = '识别中'; head.append(partial); }
+      const text = document.createElement('p'); text.className = 'caption-text'; text.textContent = line.text;
+      entry.append(head,text); fragment.append(entry);
+    }
+    box.replaceChildren(fragment);
+    if (followLatest) box.scrollTop = box.scrollHeight; else box.scrollTop = oldTop;
+    $('scroll-latest').hidden = followLatest;
+  }
+  function render() {
+    const s = state || {}, ready = online && !!state, lease = !!s.pluginSessionActive, held = !!s.builtinRouteActive;
+    const locked = lease || (held && !s.continuousVoiceActive), editing = ready && idle(s) && !locked && !anyPending();
+    if (state && (!dirty || locked)) { setDraft(s); if (locked) dirty = false; }
+    const api = selectedMode() === 'openai_realtime';
+    const phones = Array.isArray(s.pairedPhones) ? s.pairedPhones.filter(p => p && typeof p.address === 'string' && typeof p.name === 'string') : [];
+    const phoneSignature = JSON.stringify([phones,s.phoneConfigured,s.phoneAddress]);
+    if (phoneSignature !== phonesSignature) {
+      phonesSignature = phoneSignature;
+      const fragment = document.createDocumentFragment(), empty = document.createElement('option');
+      empty.value = ''; empty.textContent = '请选择手机'; fragment.append(empty);
+      for (const phone of phones) { const option = document.createElement('option'); option.value = phone.address; option.textContent = phone.name + ' · ' + phone.address; fragment.append(option); }
+      if (s.phoneConfigured && s.phoneAddress && !phones.some(p => p.address === s.phoneAddress)) {
+        const configured = document.createElement('option'); configured.value = s.phoneAddress; configured.textContent = (s.phoneName || '已选手机') + '（当前不在列表中）'; fragment.append(configured);
+      }
+      $('paired-phone').replaceChildren(fragment);
+    }
+    const chosenPhone = phoneChoice || (s.phoneConfigured ? s.phoneAddress : '');
+    $('paired-phone').value = chosenPhone || '';
+    const pairing = !!s.pairingModeActive;
+    const canSelectPhone = ready && idle(s) && !lease && !held && !s.connected && !s.phoneSelectionPending && !pairing && !anyPending();
+    $('paired-phone').disabled = !canSelectPhone;
+    $('refresh-phones').disabled = !ready || s.phoneSelectionPending || pairing || anyPending() || !idle(s);
+    $('select-phone').disabled = !canSelectPhone || !phones.some(p => p.address === chosenPhone) || (s.phoneConfigured && chosenPhone === s.phoneAddress);
+    $('forget-phone').disabled = !canSelectPhone || !s.phoneConfigured;
+    setText('phone-selection-status',s.phoneSelectionPending ? '正在选择手机…' : s.phoneConfigured ? '当前使用：' + (s.phoneName || '已选手机') : '先在 macOS 蓝牙设置中完成配对，再选择手机。');
+    $('audio-pairing').disabled = !ready || !idle(s) || lease || held || !!s.connected || s.phoneSelectionPending || anyPending();
+    setText('audio-pairing', pairing ? '停止配对模式' : '准备重新配对');
+    setText('pairing-status', pairing
+      ? (s.pairingRoleMatches ? 'Mac 正以免提设备身份等待。现在可在手机忘记 Mac 后重新配对。' : '免提角色校验失败，请停止配对模式。')
+      : '仅在手机通话界面没有蓝牙路由时使用。');
+    badge('backend-badge', online ? 'ok' : 'bad'); setText('backend-label', online ? '后台在线' : (state ? '后台未连接' : '连接后台中'));
+    setText('phone-state', s.connected ? '已连接' : s.busy ? '处理中' : ready ? '未连接' : '—');
+    setText('call-state', s.phoneStateUnknown ? '需在手机核实' : s.callActive ? '拨号 / 通话中' : s.callPending ? '等待手机确认' : s.busy ? '处理中' : ready ? '空闲' : '—');
+    setText('status-copy', online ? (s.status || '后台已连接') : '正在等待本机后台，连接恢复后会自动更新。');
+    $('lease-badge').hidden = !lease; $('lock-note').hidden = !locked;
+    modeInputs.forEach(input => { input.disabled = !editing; });
+    for (const id of ['number','instructions','duration','voice']) $(id).disabled = !editing;
+    const needsDisconnect = !!s.connected && $('number').value.trim() !== s.number;
+    $('save-config').disabled = !editing || !dirty || !validDraft() || needsDisconnect;
+    setText('draft-note', dirty ? '有未保存的修改' : locked ? '设置由当前任务持有' : '');
+    $('builtin-panel').hidden = api; $('api-panel').hidden = !api;
+    $('continuous-note').hidden = !s.continuousVoiceActive;
+    setText('voice-confirmation-label', s.continuousVoiceActive ? '当前 Codex 语音已选择 PhoneBridge Voice Input；换号时保留语音会话' : '我已启动当前对话的语音，并选择手机麦克风');
+    const operable = ready && !anyPending();
+    setText('connection', s.connected ? '断开手机' : s.busy ? '连接处理中' : '连接手机');
+    $('connection').disabled = !operable || (s.connected ? activeCall(s) : (dirty || s.busy || lease || !s.phoneConfigured));
+    const builtinReady = held && s.builtinRouteReady && s.builtinVoiceConfirmed;
+    const apiReady = s.cloudConsent;
+    $('validate-bluetooth').disabled = !operable || !idle(s) || !s.bluetoothCallControlReady || held || lease;
+    $('prepare-validation').disabled = !operable || !idle(s) || !s.connected || held || lease || s.dialerStage !== 'submitted';
+    $('send-validation').disabled = !operable || !s.audioValidationReady || !s.callActive || s.validationPromptSent;
+    const validationStart = Number(s.audioValidationStartedAt) || 0;
+    const validationDuration = Number(s.audioValidationDurationSeconds) || 0;
+    const validationRemaining = Math.max(0, Math.ceil(validationDuration - (Date.now()/1000 - validationStart)));
+    const validationReason = s.audioValidationStopReason === 'duration_limit' ? '已到设定时限，音频主动停止' : '本轮声音验证已停止';
+    setText('validation-window', validationStart > 0
+      ? (s.audioValidationStoppedAt > 0 ? validationReason : '声音验证剩余约 ' + validationRemaining + ' 秒；到时主动停止音频')
+      : s.audioValidationPrepared ? '声音已准备，等待手机开始呼叫后计时' : '');
+    $('inspect-dialer').disabled = !operable || !idle(s) || dirty || !s.connected || held || lease;
+    $('dial').disabled = !operable || !idle(s) || dirty || !s.connected || !(api ? apiReady : builtinReady);
+    $('hangup').disabled = !ready || pending.has('hangup') || !(activeCall(s) || s.busy || lease);
+    setText('dial', s.callPending ? '电话正在呼叫' : '蓝牙拨号');
+    setText('hangup', s.callActive || s.callPending ? '结束通话' : (s.busy || lease) ? '结束任务' : '结束通话');
+    setText('dial-hint', needsDisconnect ? '先断开手机，再保存新号码。' : dirty ? '先保存设置，再连接。' : api ? '会先检查语音服务，再通过蓝牙拨打已保存号码。' : builtinReady ? '通过蓝牙拨号和挂断；实际电话声音需独立验证。' : '准备音频并确认当前对话的语音已启动。');
+    $('api-interrupt-row').hidden = !api || !s.voiceActive; $('interrupt').disabled = !operable || !s.voiceActive;
+    const backendError = typeof s.error === 'string' ? s.error : ''; setText('backend-error',backendError); $('backend-error').hidden = !backendError;
+    renderPermission('microphone-permission',s.microphonePermission); renderPermission('speech-permission',s.speechPermission);
+    const granted = s.microphonePermission === 'authorized' && s.speechPermission === 'authorized';
+    $('permissions').disabled = !operable || s.permissionRequestPending || !idle(s) || granted;
+    setText('permissions', s.permissionRequestPending ? '请查看系统授权窗口' : granted ? '权限已允许' : '允许麦克风与字幕');
+    $('prepare-builtin').disabled = !operable || !idle(s) || (!s.connected && !s.continuousVoiceInstalled) || !granted || held || dirty;
+    badge('route-badge', held ? (s.builtinRouteReady ? 'ok' : 'warn') : '');
+    setText('route-label',s.continuousVoiceActive ? (s.continuousVoiceReady ? '连续语音 · ' + (s.continuousVoiceTarget === 'phone' ? '电话中' : '本机交流') : '连续语音待检查') : held ? (s.builtinRouteReady ? '音频已准备' : '待恢复 / 检查') : '未准备');
+    $('voice-confirmation').disabled = !operable || !idle(s) || !held || !s.builtinRouteReady || !!s.builtinVoiceConfirmed;
+    if (s.builtinVoiceConfirmed) $('voice-confirmation').checked = true;
+    else if (!held || !s.builtinRouteReady) $('voice-confirmation').checked = false;
+    $('confirm-builtin').disabled = !operable || !idle(s) || !held || !s.builtinRouteReady || !$('voice-confirmation').checked || !!s.builtinVoiceConfirmed;
+    setText('confirm-builtin',s.builtinVoiceConfirmed ? '语音已确认' : '确认语音已就绪');
+    $('restore-area').hidden = !held;
+    if (held !== previousRouteActive) { $('voice-stopped').checked = false; previousRouteActive = held; }
+    $('voice-stopped').disabled = !operable || !idle(s) || !held;
+    $('restore-audio').disabled = !operable || !idle(s) || !held || !$('voice-stopped').checked;
+    $('api-key').disabled = !ready || !idle(s) || anyPending();
+    $('save-key').disabled = !ready || !idle(s) || anyPending() || !$('api-key').value.trim();
+    $('remove-key').disabled = !operable || !idle(s);
+    setText('key-status',s.keyConfigured ? '密钥已保存，不会显示原文。' : '密钥状态尚未确认；已有密钥可直接检查服务。');
+    $('api-consent').checked = !!s.cloudConsent; $('api-consent').disabled = !operable || !idle(s);
+    $('check-service').disabled = !operable || !idle(s) || !s.cloudConsent;
+    $('cancel-service').hidden = !s.voiceServiceChecking; $('cancel-service').disabled = !ready || pending.has('cancel_service');
+    setText('check-service',s.voiceServiceChecking ? '正在检查…' : '检查语音服务');
+    setText('service-result',s.voiceServiceStatus || '只检查服务连接，不拨电话。');
+    $('live-state').className = 'live-state' + (s.voiceActive || s.callActive ? ' listening' : '');
+    setText('live-label',s.voiceActive || s.phoneStateUnknown ? '需在手机核实' : s.callActive ? '拨号 / 通话中' : s.callPending ? '等待手机确认' : '等待通话');
+    setText('caption-note',s.captionWarning || (s.modeID === 'builtin_voice' ? '双方声音由本机转写，识别中文字可能修订。' : '双方实时字幕由语音服务提供。'));
+    setText('version',typeof s.version === 'string' ? '· ' + s.version : '');
+    setText('diagnostic-text',typeof s.diagnosticSummary === 'string' ? s.diagnosticSummary : '暂无诊断摘要。');
+    renderTranscript(s);
+  }
+  async function poll() {
+    if (pollInFlight) return;
+    pollInFlight = true; const revision = stateRevision, controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const response = await fetch('./state',{cache:'no-store',credentials:'same-origin',signal:controller.signal});
+      if (!response.ok) throw new Error('state unavailable');
+      const value = await response.json();
+      if (!value || typeof value !== 'object' || value.backendRunning !== true) throw new Error('backend unavailable');
+      if (revision === stateRevision) { state = value; online = true; }
+    } catch { if (revision === stateRevision) online = false; }
+    finally { clearTimeout(timeout); pollInFlight = false; render(); }
+  }
+  async function command(action, fields = {}, success = '') {
+    if (!online || pending.has(action)) return;
+    const serial = ++commandSerial; stateRevision++; pending.add(action); feedback(''); render();
+    const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 55000);
+    try {
+      const response = await fetch('./command',{method:'POST',credentials:'same-origin',cache:'no-store',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...fields}),signal:controller.signal});
+      const result = await response.json();
+      if (serial === commandSerial && result && typeof result.state === 'object' && result.state?.backendRunning === true) { stateRevision++; state = result.state; online = true; }
+      if (!response.ok || result?.ok !== true) throw new Error(typeof result?.error === 'string' ? result.error : '操作未完成，请查看当前状态。');
+      if (action === 'configure') dirty = false;
+      if (action === 'save_key') $('api-key').value = '';
+      if (action === 'select_phone' || action === 'forget_phone') phoneChoice = '';
+      if (action === 'restore_audio') $('voice-stopped').checked = false;
+      if (serial === commandSerial) feedback(typeof result.message === 'string' ? result.message : success,'success');
+    } catch (error) {
+      if (serial === commandSerial) feedback(error.name === 'AbortError' ? '请求尚未确认，请查看当前状态；页面不会自动重试此操作。' : error.message,'error');
+    } finally { clearTimeout(timeout); pending.delete(action); render(); await poll(); }
+  }
+  function changed() { dirty = true; render(); }
+  for (const id of ['number','instructions','duration','voice']) $(id).addEventListener('input',changed);
+  modeInputs.forEach(input => input.addEventListener('change',changed));
+  $('api-key').addEventListener('input',render);
+  $('paired-phone').addEventListener('change',event => { phoneChoice = event.target.value; render(); });
+  $('refresh-phones').addEventListener('click',() => command('refresh_phones'));
+  $('select-phone').addEventListener('click',() => { if ($('paired-phone').value) command('select_phone',{address:$('paired-phone').value}); });
+  $('forget-phone').addEventListener('click',() => command('forget_phone'));
+  $('audio-pairing').addEventListener('click',() => command(state?.pairingModeActive ? 'stop_audio_pairing' : 'start_audio_pairing',{},
+    state?.pairingModeActive ? '配对模式已停止。' : 'Mac 已开始广播免提角色。'));
+  $('voice-confirmation').addEventListener('change',render); $('voice-stopped').addEventListener('change',render);
+  $('save-config').addEventListener('click',() => { if (validDraft()) { const d = draft(); delete d.action; command('configure',d,'设置已保存。'); } });
+  $('connection').addEventListener('click',() => command(state?.connected ? 'disconnect' : 'connect'));
+  $('validate-bluetooth').addEventListener('click',() => command('validate_bluetooth_audio'));
+  $('prepare-validation').addEventListener('click',() => command('prepare_audio_validation'));
+  $('send-validation').addEventListener('click',() => command('send_validation_prompt'));
+  $('inspect-dialer').addEventListener('click',() => command('inspect_dialer'));
+  $('dial').addEventListener('click',() => command('dial'));
+  $('hangup').addEventListener('click',() => command('hangup'));
+  $('interrupt').addEventListener('click',() => command('interrupt'));
+  $('permissions').addEventListener('click',() => command('request_permissions',{},'请完成 macOS 弹出的授权。'));
+  $('prepare-builtin').addEventListener('click',() => command('prepare_builtin'));
+  $('confirm-builtin').addEventListener('click',() => { if ($('voice-confirmation').checked) command('confirm_builtin',{confirmed:true}); });
+  $('restore-audio').addEventListener('click',() => { if ($('voice-stopped').checked) command('restore_audio',{voiceStopped:true}); });
+  $('api-consent').addEventListener('change',event => command('api_consent',{allowed:event.target.checked}));
+  $('save-key').addEventListener('click',() => command('save_key',{apiKey:$('api-key').value.trim()},'密钥已保存。'));
+  $('api-key').addEventListener('keydown',event => { if (event.key === 'Enter' && !$('save-key').disabled) { event.preventDefault(); $('save-key').click(); } });
+  $('remove-key').addEventListener('click',() => command('remove_key',{},'已移除密钥。'));
+  $('check-service').addEventListener('click',() => command('check_service'));
+  $('cancel-service').addEventListener('click',() => command('cancel_service'));
+  $('dismiss-feedback').addEventListener('click',() => feedback(''));
+  $('transcript').addEventListener('scroll',() => { const box = $('transcript'); followLatest = box.scrollHeight - box.scrollTop - box.clientHeight < 36; $('scroll-latest').hidden = followLatest; },{passive:true});
+  $('scroll-latest').addEventListener('click',() => { followLatest = true; $('transcript').scrollTop = $('transcript').scrollHeight; $('scroll-latest').hidden = true; });
+  document.addEventListener('visibilitychange',() => { if (!document.hidden) poll(); });
+  async function loop() { await poll(); setTimeout(loop,document.hidden ? 2500 : 700); }
+  loop();
+})();
+</script>
+</body>
+</html>
