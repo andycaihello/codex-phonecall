@@ -10,6 +10,22 @@ PhoneBridge 由 Codex 插件、Mac 后台程序、虚拟音频驱动和 HarmonyO
 
 > 用通话桥拨打【电话号码】，说明你是我的 AI 助手，帮我咨询营业时间，把双方字幕显示出来，结束后总结。
 
+## 界面预览
+
+### HarmonyOS 手机伴侣
+
+实机首页，展示连接状态、蓝牙权限、已配对电脑选择和单一会话启停按钮。图中处于「未启动」状态，首次使用从选择电脑、启动会话开始。
+
+<p align="center">
+  <a href="docs/assets/mobile-companion.jpg"><img src="docs/assets/mobile-companion.jpg" alt="HarmonyOS 手机伴侣实机截图：连接状态、蓝牙权限、Mac 设备选择和启动会话" width="360"></a>
+</p>
+
+### Mac 本地通话控制台
+
+真实控制台页面的文档演示截图，展示语音模式、任务配置、连续语音准备和双方实时字幕。**设备、号码及字幕均为示例数据，不是本次真实通话或当前连接状态。** 控制台可由插件打开在 Codex 右侧；点击图片可以查看完整截图。
+
+[![Mac 通话控制台：任务配置、连续语音准备和 AI／对方双角色字幕（示例数据）](docs/assets/call-console.jpg)](docs/assets/call-console.jpg)
+
 ## 当前版本与适用范围
 
 | 组件 | 当前版本 | 作用 |

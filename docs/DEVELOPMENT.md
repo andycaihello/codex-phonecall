@@ -39,6 +39,16 @@ python3 integration/test-builtin-captions.py
 
 已在开发者设备完成的验收不能代替另一套硬件上的检查。当前 README 区分已验证的内置语音、尚待独立实机验收的 Realtime 模式，以及未完成的普遍兼容和正式签名发行。
 
+## 重现控制台文档截图
+
+```sh
+python3 scripts/preview-console.py
+```
+
+打开脚本输出的本地地址即可查看。它直接使用产品的 `console.html`，只提供内置示例状态，不读取 PhoneBridge 运行时、API 密钥或历史字幕，不连接手机，不采集音频，不支持 POST 命令。截取完成后按 Ctrl+C 停止。它是文档预览，不是实际通话控制台。
+
+手机截图则来自已安装伴侣 App 的实际首页，未启动会话或拨号。截图来源及示例数据说明见 [截图说明](assets/README.md)。
+
 ## 提交与发布
 
 不要提交 `dist/`、`.build/`、诊断日志、通话文字、联系人/设备信息、生成的 MCP 配置和签名密钥。仓库保留的 `bluetooth-test.pcm` 是随应用分发的固定测试语音资源，不是用户通话录音。
