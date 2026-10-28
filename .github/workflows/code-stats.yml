@@ -1,0 +1,46 @@
+name: Update code statistics
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: code-stats-main
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Update README statistics
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+      - name: Fetch and verify pinned cloc
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/AlDanial/cloc/eb5cef64db2b2d4380f501568cc584b7cab4ba50/cloc \
+            --output "$RUNNER_TEMP/cloc.pl"
+          printf '%s  %s\n' 'bf59272455172108072a0a106379f7509fd4349bdcfd85203bac038ccd286d83' "$RUNNER_TEMP/cloc.pl" | sha256sum --check --status
+      - name: Generate statistics
+        run: python3 scripts/update-code-stats.py --cloc "$RUNNER_TEMP/cloc.pl"
+      - name: Commit only changed README
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code -- README.md && exit 0
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- README.md
+          git commit -m 'docs: 自动更新代码统计'
+          git push origin HEAD:main

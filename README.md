@@ -12,6 +12,14 @@ PhoneBridge 由 Codex 插件、Mac 后台程序、虚拟音频驱动和 HarmonyO
 
 > 用通话桥拨打【电话号码】，说明你是我的 AI 助手，帮我咨询营业时间，把双方字幕显示出来，结束后总结。
 
+## 代码规模
+
+<!-- CODE_STATS_START -->
+
+首次统计将在本次提交的 GitHub Actions 运行后自动生成。
+
+<!-- CODE_STATS_END -->
+
 ## 界面预览
 
 ### HarmonyOS 手机伴侣
