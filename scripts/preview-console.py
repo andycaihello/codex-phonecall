@@ -10,13 +10,13 @@ import json
 
 ROOT = Path(__file__).resolve().parents[1]
 STATE = {
-    "backendRunning": True, "version": "0.7.7", "modeID": "builtin_voice",
+    "backendRunning": True, "version": "0.7.8", "modeID": "builtin_voice",
     "connected": True, "callActive": False, "busy": False,
     "status": "文档演示 · 以下设备、号码及字幕均为示例数据，不代表真实通话。",
     "phoneConfigured": True, "phoneName": "HarmonyOS 测试手机",
     "phoneAddress": "AA:BB:CC:DD:EE:FF",
     "pairedPhones": [{"name": "HarmonyOS 测试手机", "address": "AA:BB:CC:DD:EE:FF"}],
-    "number": "13800000000", "maximumSeconds": 60,
+    "number": "13800000000", "maximumSeconds": 0,
     "instructions": "说明你是机主委托的 AI 助手，进行简短的电话语音测试。确认双方能否听清，结束后挂断并总结。",
     "voice": "marin", "microphonePermission": "authorized", "speechPermission": "authorized",
     "continuousVoiceInstalled": True, "continuousVoiceActive": True,

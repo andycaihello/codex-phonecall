@@ -80,7 +80,8 @@ struct IntegratedSessionView: View {
                                     Text("Marin").tag(RealtimeVoice.marin)
                                     Text("Cedar").tag(RealtimeVoice.cedar)
                                 }.frame(width: 240)
-                                Picker("本次最长", selection: $session.maximumSeconds) {
+                                Picker("通话时限", selection: $session.maximumSeconds) {
+                                    Text("不限时").tag(0)
                                     Text("1 分钟").tag(60); Text("3 分钟").tag(180); Text("5 分钟").tag(300)
                                 }.frame(width: 200)
                             }.disabled(session.voiceActive || session.busy)

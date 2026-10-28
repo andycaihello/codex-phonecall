@@ -125,5 +125,5 @@ main='''
 with tempfile.TemporaryDirectory(prefix='phonebridge-bt-dial-offline-') as d:
  b=Path(d);(b/'Coordinator.swift').write_text(src);(b/'Checks.swift').write_text(f+main)
  subprocess.run(['swiftc','-emit-library','-emit-module','-module-name','BridgeCore',*[str(root/'Sources/BridgeCore'/n) for n in ['Protocol.swift','RealtimeProtocol.swift','PhoneNumber.swift','PhonePeerConfiguration.swift']],'-emit-module-path',str(b/'BridgeCore.swiftmodule'),'-o',str(b/'libBridgeCore.dylib')],check=True,timeout=60)
- subprocess.run(['swiftc','-parse-as-library','-I',d,'-L',d,'-lBridgeCore','-Xlinker','-rpath','-Xlinker',d,str(b/'Coordinator.swift'),str(root/'Sources/PhoneBridge/ConversationMode.swift'),str(b/'Checks.swift'),'-o',str(b/'checks')],check=True,timeout=60)
+ subprocess.run(['swiftc','-parse-as-library','-I',d,'-L',d,'-lBridgeCore','-Xlinker','-rpath','-Xlinker',d,str(b/'Coordinator.swift'),str(root/'Sources/PhoneBridge/CodexVoiceCaptions.swift'),str(root/'Sources/PhoneBridge/ConversationMode.swift'),str(b/'Checks.swift'),'-o',str(b/'checks')],check=True,timeout=60)
  subprocess.run([str(b/'checks')],check=True,timeout=15)

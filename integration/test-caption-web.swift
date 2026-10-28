@@ -72,6 +72,9 @@ import Darwin
                   "paired phone list exposes only address and name")
         try check(CaptionWebServer.safeSnapshot(["maximumSeconds":true])["maximumSeconds"] == nil,
                   "boolean cannot masquerade as console duration")
+        try check(CaptionWebServer.safeSnapshot(["maximumSeconds":0])["maximumSeconds"] as? Int == 0 &&
+                  CaptionWebServer.safeSnapshot(["maximumSeconds":1800])["maximumSeconds"] as? Int == 1800,
+                  "unlimited and explicit longer duration survive web projection")
         let validation = CaptionWebServer.safeSnapshot(["audioValidationStartedAt": 12.5,
             "audioValidationStoppedAt": 0, "audioValidationVoiceConfirmedAt": 14,
             "audioValidationDurationSeconds": 180, "audioValidationStopReason": "duration_limit"])

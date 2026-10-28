@@ -25,6 +25,7 @@ jobs:
           persist-credentials: false
       - run: python3 scripts/check-source.py
       - run: python3 plugins/phonebridge/mcp/test_server.py
+      - run: python3 integration/test-codex-voice-captions.py
   swift:
     name: Swift offline checks
     if: github.event.repository.private == false
@@ -43,3 +44,4 @@ jobs:
       - run: python3 integration/test-caption-web.py
       - run: python3 integration/test-builtin-captions.py
       - run: python3 integration/test-realtime-conversation.py
+      - run: python3 integration/test-codex-caption-adapter.py

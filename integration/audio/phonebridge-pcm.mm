@@ -21,7 +21,7 @@ static void pump(double seconds = .005) {
 }
 struct Options {
     bool bridge = false, permissionStatus = false, permissionRequest = false, validate = false, help = false;
-    unsigned maxSeconds = 300;
+    unsigned maxSeconds = 0; // no fixed IO duration; parent/IPC/health checks remain
     NSString *socket = nil, *tokenFile = nil, *report = nil, *phoneAddress = nil, *phoneName = nil;
 };
 static NSString *parse(int argc, const char **argv, Options &o) {
@@ -48,8 +48,12 @@ static NSString *parse(int argc, const char **argv, Options &o) {
             if (!value.length || [value hasPrefix:@"--"]) return @"Missing option value";
             if ([arg isEqualToString:@"--max-seconds"]) {
                 const char *p = argv[i]; unsigned count = 0;
-                for (; *p; ++p) { if (*p < '0' || *p > '9' || count > 300) return @"--max-seconds must be an integer 1..300"; count = count * 10 + unsigned(*p - '0'); }
-                if (!count || count > 300) return @"--max-seconds must be an integer 1..300";
+                for (; *p; ++p) {
+                    if (*p < '0' || *p > '9') return @"--max-seconds must be an integer 0..2147483647; 0 means unlimited";
+                    unsigned digit = unsigned(*p - '0');
+                    if (count > (2147483647u - digit) / 10u) return @"--max-seconds exceeds integer range";
+                    count = count * 10u + digit;
+                }
                 o.maxSeconds = count;
             } else {
                 if (!value.isAbsolutePath || ![value isEqualToString:value.stringByStandardizingPath]) return @"Paths must be absolute and standardized";
@@ -327,7 +331,7 @@ static int runBridge(const Options &o, NSMutableDictionary *r, int reportFD) {
     if (!input.create && input.proc) output.create = AudioDeviceCreateIOProcID(output.id, ioProc, &output, &output.proc);
     if (!input.create && !output.create && input.proc && output.proc && !interrupted.load()) {
         output.start = AudioDeviceStart(output.id, output.proc); output.started = output.start == noErr;
-        if (output.started) { ioStart = nowSeconds(); deadline.set(o.maxSeconds + 3); }
+        if (output.started) { ioStart = nowSeconds(); deadline.set(o.maxSeconds ? double(o.maxSeconds) + 3 : 10); }
         if (output.started && !interrupted.load()) { input.start = AudioDeviceStart(input.id, input.proc); input.started = input.start == noErr; }
     }
     if (!ioStart) ioStart = nowSeconds();
@@ -344,8 +348,12 @@ static int runBridge(const Options &o, NSMutableDictionary *r, int reportFD) {
         @"format": @"pcm16-little-endian", @"max_seconds": @(o.maxSeconds),
         @"input_uid": inputUID, @"output_uid": outputUID, @"device_name": phoneName,
         @"resampler_delay_ms": @(1000.0 * FIR24::delayFrames24 / 24000)}, false)) success = false;
-    while (started && success && !stop && !interrupted.load() && !shared->stop.load() && nowSeconds() - ioStart < o.maxSeconds) {
+    while (started && success && !stop && !interrupted.load() && !shared->stop.load() &&
+           (!o.maxSeconds || nowSeconds() - ioStart < o.maxSeconds)) {
         @autoreleasepool {
+            // In unlimited mode a stalled main loop is still terminated; this
+            // moving health watchdog is not a limit on total call duration.
+            if (!o.maxSeconds) deadline.set(10);
             NSMutableArray *commands = [NSMutableArray array];
             if (!ipc.flush() || !ipc.receive(commands)) { r[@"error"] = ipc.error; success = false; break; }
             for (NSDictionary *c in commands) {
@@ -462,7 +470,7 @@ int main(int argc, const char **argv) {
         Options o; NSString *error = parse(argc, argv, o);
         if (error) { emit(@{@"stage": @"argument-error", @"error": error, @"ioStarted": @NO, @"deviceQueries": @NO}); return 2; }
         if (o.help) {
-            puts("--bridge --phone-address AA:BB:CC:DD:EE:FF --phone-name NAME --socket /absolute/private/coordinator.sock --token-file /absolute/private/token [--max-seconds 1..300] [--report /absolute/private/new.json]\n"
+            puts("--bridge --phone-address AA:BB:CC:DD:EE:FF --phone-name NAME --socket /absolute/private/coordinator.sock --token-file /absolute/private/token [--max-seconds 0..2147483647; 0=unlimited] [--report /absolute/private/new.json]\n"
                  "--microphone-permission-status | --request-microphone-permission [--report /absolute/private/new.json]\n"
                  "--validate-args with one action parses only: no AppKit, permission, file, socket or device work.\n"
                  "Bridge waits for authenticated local coordinator start; exact selected Bluetooth endpoints only. No recording, cloud, ASR, default fallback or device-format changes."); return 0;

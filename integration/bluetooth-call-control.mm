@@ -644,7 +644,7 @@ static NSDictionary *uintElement(int n, int bytes) { return @{@"DataElementType"
 
 int main(int argc, const char **argv) {
     @autoreleasepool {
-        bool run = false, validate = false, validateCommands = false, help = false; double limit = 21600;
+        bool run = false, validate = false, validateCommands = false, help = false; double limit = 0;
         NSMutableSet *seen = [NSMutableSet set]; NSString *error = nil;
         for (int i = 1; i < argc && !error; ++i) {
             NSString *arg = [NSString stringWithUTF8String:argv[i]];
@@ -664,7 +664,7 @@ int main(int argc, const char **argv) {
             }
             else if ([arg isEqualToString:@"--max-seconds"] && ++i < argc) {
                 char *end = nullptr; limit = strtod(argv[i], &end);
-                if (!end || *end || !std::isfinite(limit) || limit < 15 || limit > 21600) error = @"max_seconds_must_be_15_to_21600";
+                if (!end || end == argv[i] || *end || !std::isfinite(limit) || limit < 0 || limit > 2147483647 || std::floor(limit) != limit || (limit > 0 && limit < 15)) error = @"max_seconds_must_be_zero_or_15_to_2147483647";
             } else error = @"unknown_or_missing_argument";
         }
         if (help && argc != 2) error = @"help_must_be_alone";
@@ -677,7 +677,7 @@ int main(int argc, const char **argv) {
         }
         signal(SIGPIPE, SIG_IGN);
         if (error || help || validate || (!run && !validateCommands)) {
-            emit(@{@"event": error ? @"args_error" : validate ? @"args_valid" : @"help", @"ok": @(!error), @"detail": error ?: @"--run --phone-address AA:BB:CC:DD:EE:FF --phone-name NAME --allow-number NUMBER [--max-seconds 15..21600] [--validate-args]; JSONL stdin; startup performs no connection. --validate-commands --allow-number NUMBER is offline only.", @"deviceQueries": @NO, @"dialed": @NO});
+            emit(@{@"event": error ? @"args_error" : validate ? @"args_valid" : @"help", @"ok": @(!error), @"detail": error ?: @"--run --phone-address AA:BB:CC:DD:EE:FF --phone-name NAME --allow-number NUMBER [--max-seconds 0=unlimited or 15..2147483647] [--validate-args]; JSONL stdin; startup performs no connection. --validate-commands --allow-number NUMBER is offline only.", @"deviceQueries": @NO, @"dialed": @NO});
             return error ? 2 : 0;
         }
         if (validateCommands) {
@@ -699,7 +699,7 @@ int main(int argc, const char **argv) {
         emit(@{@"event": @"ready", @"deviceQueries": @NO, @"dialed": @NO, @"maxSeconds": @(limit), @"helperUUID": helperUUID, @"state": controller.state});
         while (!controller.finished) {
             @autoreleasepool {
-                if (interrupted || getppid() == 1 || now() - started >= limit) [controller beginShutdown:interrupted ? @"signal" : @"parent_exit_or_session_deadline" requestID:nil];
+                if (interrupted || getppid() == 1 || (limit > 0 && now() - started >= limit)) [controller beginShutdown:interrupted ? @"signal" : @"parent_exit_or_session_deadline" requestID:nil];
                 if (!eof && !controller.shutdown) {
                     char bytes[1024]; ssize_t count = read(STDIN_FILENO, bytes, sizeof(bytes));
                     if (count > 0) for (ssize_t i = 0; i < count; ++i) {

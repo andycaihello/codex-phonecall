@@ -16,6 +16,7 @@ struct ConversationLine: Identifiable {
 }
 @MainActor final class FakeBuiltinCaptions {
     var diagnosticSnapshot: [String: Any] { ["fake": true] }
+    var snapshot: [String: Any] { ["fake": true] }
 }
 /// Deliberately contains no real Bluetooth, CoreAudio, Keychain, Speech or API class.
 @MainActor final class CallSessionCoordinator {
@@ -27,6 +28,9 @@ struct ConversationLine: Identifiable {
     var phone: PhonePeerConfiguration?
     var number = "", instructions = "", status = "fixture", error = ""
     var maximumSeconds = 60
+    var codexCaptionThreadID: String?
+    let codexCaptions = FakeBuiltinCaptions()
+    var usesCodexCaptions: Bool { codexCaptionThreadID != nil }
     var builtinVoiceConfirmed = false, pluginSessionActive = false, cloudConsent = true
     var canCheckVoiceService = true, voiceServiceChecking = false, voiceServiceStatus = "fixture check"
     var voiceCheckOK = true, deferVoiceCheck = false, deferConnect = false, failBuiltinPrepare = false

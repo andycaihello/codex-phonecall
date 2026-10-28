@@ -48,7 +48,7 @@ final class BluetoothControlProcess {
         stopping = false
         let child = Process(), input = Pipe(), output = Pipe(), error = Pipe()
         child.executableURL = executable
-        child.arguments = ["--run", "--max-seconds", "21600", "--allow-number", allowedNumber,
+        child.arguments = ["--run", "--max-seconds", "0", "--allow-number", allowedNumber,
             "--phone-address", phone.address, "--phone-name", phone.name]
         child.standardInput = input; child.standardOutput = output; child.standardError = error
         output.fileHandleForReading.readabilityHandler = { [weak self] handle in

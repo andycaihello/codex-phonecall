@@ -179,7 +179,7 @@ final class PCMTransport {
         configuration.addsToRecentItems = false
         configuration.promptsUserIfNeeded = false
         configuration.arguments = ["--bridge"] + Self.phoneArguments(phone) + ["--socket", socketPath, "--token-file", tokenURL.path,
-                                   "--max-seconds", "300", "--report", dir.appendingPathComponent("report.json").path]
+                                   "--max-seconds", "0", "--report", dir.appendingPathComponent("report.json").path]
         // URL equality includes directory/base representation. Match resolved
         // filesystem paths, as in the verified public permission launcher.
         let expectedBundlePath = helperURL.resolvingSymlinksInPath().standardizedFileURL.path

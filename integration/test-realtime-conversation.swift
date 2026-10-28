@@ -198,8 +198,17 @@ private struct RealtimeChecks {
         let gated = RealtimeConversation(transportFactory: { _ in factoryCalls += 1; return unused })
         try expect(.consentRequired, "missing consent rejects before transport") { try gated.start(apiKey: key, consentGranted: false) }
         try expect(.invalidKey, "header injection key rejects before transport") { try gated.start(apiKey: key + "\r\n", consentGranted: true) }
-        try expect(.invalidConfiguration, "duration above 300 rejects before transport") { try gated.start(apiKey: key, consentGranted: true, maximumDuration: 301) }
+        try expect(.invalidConfiguration, "negative duration rejects before transport") { try gated.start(apiKey: key, consentGranted: true, maximumDuration: -1) }
         try check(factoryCalls == 0 && unused.resumes == 0, "all invalid starts avoid transport creation")
+
+        let unlimitedSocket = FakeSocket()
+        let unlimited = RealtimeConversation(transportFactory: { _ in unlimitedSocket })
+        try unlimited.start(apiKey: key, consentGranted: true, maximumDuration: 0)
+        try check(unlimited.isRunning && unlimitedSocket.resumes == 1, "zero duration enables session without a fixed call deadline")
+        unlimited.stop()
+        try unlimited.start(apiKey: key, consentGranted: true, maximumDuration: 1800)
+        try check(unlimited.isRunning, "explicit duration beyond five minutes is accepted")
+        unlimited.stop()
 
         let socket = FakeSocket()
         let client = RealtimeConversation(transportFactory: { _ in socket })

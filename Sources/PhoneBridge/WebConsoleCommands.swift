@@ -5,7 +5,7 @@ import CoreFoundation
 import BridgeCore
 
 private struct ConsoleSettings: Codable {
-    var schema = 1
+    var schema = 2
     var phone: PhonePeerConfiguration?
     var number: String
     var instructions: String
@@ -34,8 +34,10 @@ private struct ConsoleSettings: Codable {
         }
         // A separate projection avoids exposing native logs, credentials, call
         // lease IDs, audio data or private diagnostic paths to the page.
-        return ["version": "0.7.7", "backendRunning": true,
+        return ["version": "0.7.8", "backendRunning": true,
             "status": session.status, "captionWarning": session.captionWarning, "error": lastError.isEmpty ? session.error : lastError,
+            "captionSource": session.usesCodexCaptions ? "codex_transcript" : "apple_speech",
+            "codexCaptions": session.codexCaptions.snapshot,
             "modeID": session.mode.rawValue, "mode": session.mode.title,
             "connected": session.connected, "busy": session.busy || webDialTask != nil || webPermissionPending,
             "audioValidationPrepared": session.audioValidationPrepared, "audioValidationReady": session.audioValidationReady, "validationPromptSent": session.validationPromptSent,
@@ -100,8 +102,8 @@ private struct ConsoleSettings: Codable {
                       instructions.utf8.count <= 6000, let mode = ConversationMode(rawValue: try string("modeID")),
                       let voice = RealtimeVoice(rawValue: try string("voice")),
                       let duration = value["maximumSeconds"] as? NSNumber, CFGetTypeID(duration) != CFBooleanGetTypeID(),
-                      duration.doubleValue == Double(duration.intValue), (1...300).contains(duration.intValue) else {
-                    throw BridgeError("请填写有效号码、通话任务和 1 到 300 秒的整数时长。")
+                      duration.doubleValue == Double(duration.intValue), (0...Int(Int32.max)).contains(duration.intValue) else {
+                    throw BridgeError("请填写有效号码和通话任务；通话时限为非负整数秒，0 表示不限时。")
                 }
                 guard !session.connected || session.number == number else { throw BridgeError("号码已改变，请先断开手机再保存。") }
                 guard !session.continuousVoice.active || mode == .builtinVoice else {
@@ -190,7 +192,11 @@ private struct ConsoleSettings: Codable {
                 webPermissionPending = true
                 Task { [weak self] in
                     guard let self else { return }
-                    await self.session.builtinCaptions.requestPermissions()
+                    if self.session.usesCodexCaptions || self.session.mode == .openaiRealtime {
+                        _ = await AVCaptureDevice.requestAccess(for: .audio)
+                    } else {
+                        await self.session.builtinCaptions.requestPermissions()
+                    }
                     self.webPermissionPending = false
                 }
             case "start_caption_check":
@@ -287,12 +293,12 @@ private struct ConsoleSettings: Codable {
             let attrs = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
             guard attrs.isRegularFile == true, attrs.isSymbolicLink != true, (attrs.fileSize ?? Int.max) <= 32_768 else { throw PhonePeerError.invalidIdentity }
             let settings = try JSONDecoder().decode(ConsoleSettings.self, from: Data(contentsOf: url))
-            guard settings.schema == 1, settings.number.isEmpty || PhoneNumber.valid(settings.number),
-                  settings.instructions.utf8.count <= 6000, (1...300).contains(settings.maximumSeconds),
+            guard (1...2).contains(settings.schema), settings.number.isEmpty || PhoneNumber.valid(settings.number),
+                  settings.instructions.utf8.count <= 6000, (0...Int(Int32.max)).contains(settings.maximumSeconds),
                   let mode = ConversationMode(rawValue: settings.mode), let voice = RealtimeVoice(rawValue: settings.voice) else { throw PhonePeerError.invalidIdentity }
             if let phone = settings.phone { try session.configurePhone(phone) }
             session.number = settings.number; session.instructions = settings.instructions; session.mode = mode
-            session.maximumSeconds = settings.maximumSeconds; session.voice = voice
+            session.maximumSeconds = settings.schema < 2 ? 0 : settings.maximumSeconds; session.voice = voice
             // Consent, user voice attestation, calls and connections are never restored.
         } catch { lastError = "本机配置无法读取，请在控制台重新选择手机并保存设置。" }
     }

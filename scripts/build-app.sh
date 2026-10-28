@@ -17,6 +17,8 @@ cp integration/bluetooth-call-control "$task_app/Contents/MacOS/bluetooth-call-c
 cp integration/prepare-phone-acl "$task_app/Contents/MacOS/prepare-phone-acl"
 ditto Sources/PhoneBridge/Resources/Web "$task_app/Contents/Resources/Web"
 ditto Sources/PhoneBridge/Resources/Audio "$task_app/Contents/Resources/Audio"
+mkdir -p "$task_app/Contents/Resources/CodexVoice"
+cp scripts/codex_voice_captions.py "$task_app/Contents/Resources/CodexVoice/codex_voice_captions.py"
 ditto integration/audio/PhoneBridgePCM.app "$task_app/Contents/Helpers/PhoneBridgePCM.app"
 codesign --verify --strict "$task_app/Contents/Helpers/PhoneBridgePCM.app"
 cat > "$task_app/Contents/Info.plist" <<'PLIST'
@@ -28,8 +30,8 @@ cat > "$task_app/Contents/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>PhoneBridge</string>
 <key>CFBundleDisplayName</key><string>通话桥</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.7.7</string>
-<key>CFBundleVersion</key><string>60</string>
+<key>CFBundleShortVersionString</key><string>0.7.8</string>
+<key>CFBundleVersion</key><string>61</string>
 <key>LSUIElement</key><true/>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>

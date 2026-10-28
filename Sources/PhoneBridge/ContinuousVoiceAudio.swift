@@ -324,12 +324,29 @@ final class ContinuousVoiceAudio {
         monitor?.cancel(); monitor = nil; stopPatches(); target = "stopped"
         for (selector, previous) in savedDefaults {
             if Self.defaultUID(selector) == installedDefaults[selector] {
-                do { try Self.setDefault(selector, uid: previous) }
+                do {
+                    let devices = AudioDeviceInfo.enumerate()
+                    let destination: String
+                    if devices.contains(where: { $0.uid == previous }) { destination = previous }
+                    else {
+                        // A disconnected headset/temporary device cannot be
+                        // restored. Return to explicit Mac hardware rather than
+                        // leaving virtual devices selected with stopped patches.
+                        let candidates = devices.filter {
+                            Self.transport($0.id) == kAudioDeviceTransportTypeBuiltIn &&
+                            (selector == kAudioHardwarePropertyDefaultInputDevice ? $0.inputChannels > 0 : $0.outputChannels > 0)
+                        }
+                        guard candidates.count == 1 else { throw BridgeError("原音频设备已离线，且无法唯一确定 Mac 内置设备。") }
+                        destination = candidates[0].uid
+                    }
+                    try Self.setDefault(selector, uid: destination)
+                }
                 catch { self.error = error.localizedDescription; continue }
             }
             savedDefaults.removeValue(forKey: selector); installedDefaults.removeValue(forKey: selector)
         }
         active = !savedDefaults.isEmpty
+        if !active { error = "" }
     }
     private static func defaultUID(_ selector: AudioObjectPropertySelector) -> String? {
         var a = AudioObjectPropertyAddress(mSelector: selector, mScope: kAudioObjectPropertyScopeGlobal, mElement: 0)

@@ -82,7 +82,7 @@ import BridgeCore
         // Initialize the system Bluetooth coordinator before a short-lived
         // connection-preparation helper asks it for controller identity.
         bluetooth.refresh()
-        log("PhoneBridge 0.7.7：后台通话服务与本地 Web 控制台。")
+        log("PhoneBridge 0.7.8：后台通话服务与本地 Web 控制台。")
         terminationObserver = NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification,
             object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
@@ -150,7 +150,7 @@ import BridgeCore
         let state = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(bluetooth.state))) ?? [:]
         let phones = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(bluetooth.devices))) ?? []
         let devices = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(audioDevices))) ?? []
-        return ["version": "0.7.7", "integratedSession": session.snapshot(),
+        return ["version": "0.7.8", "integratedSession": session.snapshot(),
             "captionWeb": ["url": captionWeb.url?.absoluteString ?? "", "error": captionWeb.error],
             "call": state, "callLabel": callLabel,
             "audioMode": audioMode.rawValue,
@@ -189,14 +189,15 @@ import BridgeCore
         switch action {
         case "plugin_console":
             guard let url = captionWeb.url else { throw BridgeError("控制台尚未就绪。") }
-            return ["consoleURL": url.absoluteString, "backendRunning": true, "version": "0.7.7"]
+            return ["consoleURL": url.absoluteString, "backendRunning": true, "version": "0.7.8"]
         case "plugin_status": return pluginCalls.status()
         case "plugin_prepare":
             guard let duration = command["max_seconds"] as? NSNumber,
                   CFGetTypeID(duration) != CFBooleanGetTypeID(), duration.doubleValue == Double(duration.intValue) else {
                 throw BridgeError("通话时长必须是整数。")
             }
-            return try pluginCalls.prepare(number: string("number"), task: string("task"), mode: string("mode"), maximumSeconds: duration.intValue)
+            return try pluginCalls.prepare(number: string("number"), task: string("task"), mode: string("mode"), maximumSeconds: duration.intValue,
+                                           codexThreadID: command["codex_thread_id"] as? String)
         case "plugin_start": return try pluginCalls.start(id: string("session_id"))
         case "plugin_prepare_builtin": return try pluginCalls.prepareBuiltin(id: string("session_id"))
         case "plugin_confirm_builtin": return try pluginCalls.confirmBuiltin(id: string("session_id"))

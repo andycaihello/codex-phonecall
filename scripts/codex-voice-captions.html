@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Codex 语音字幕验证</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#e5eaf8;background:#0e1320;color-scheme:dark}*{box-sizing:border-box}body{max-width:820px;margin:auto;padding:36px 22px}h1{font-size:25px;letter-spacing:-.5px;margin:12px 0}p{line-height:1.7;color:#aebbd0}.tag{display:inline-block;border:1px solid #41567c;color:#b9cdff;padding:5px 10px;border-radius:20px;font-size:12px}#status{margin:24px 0 12px;padding:15px 18px;border:1px solid #344668;background:#172238;border-radius:14px}article{border:1px solid #2c3c56;border-radius:15px;background:#162033;padding:18px 20px;margin:12px 0}article[data-role=assistant]{border-left:3px solid #8a9cff}small{color:#98a9c2}.text{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:9px;line-height:1.7;font-size:17px}footer{font-size:12px;color:#91a1bc;margin-top:26px}#empty{padding:32px 0;text-align:center}#mode{color:#fdcb83}
+</style>
+<span class="tag">PHONEBRIDGE · 实验性订阅器</span>
+<h1>Codex 语音实时字幕</h1>
+<p>接收 Codex 事件中的文字。这个页面不拨号、不启动语音，也不重新识别音频。</p>
+<div id="mode"></div><div id="status">正在连接本机订阅器…</div>
+<main id="lines"></main><p id="empty">等待字幕事件；空白不代表语音没有运行。</p>
+<footer>“输入”在电话接通期间可对应通话对方，空闲期间可能是机主。AI 文字不代表对方已听见；被打断的生成内容也可能保留在字幕中。</footer>
+<script>
+const names={replay:'模拟回放',disconnected:'连接已断开',voice_started:'收到语音启动事件',voice_ended:'收到语音结束事件',voice_error:'语音事件报错',watching_current_voice_transcript:'正在读取当前会话，等待新的语音文字',receiving_committed_voice_transcript:'正在同步语音定稿文字',subscribed_waiting_for_voice_events:'已订阅，等待语音字幕',finished:'本轮订阅已结束'};
+let busy=false;
+async function update(){if(busy)return;busy=true;try{
+ const r=await fetch('state',{cache:'no-store'});if(!r.ok)throw Error();const s=await r.json();
+ document.getElementById('mode').textContent=s.synthetic?'模拟数据 · 未连接真实语音，未验证俄语识别':s.source==='codex_transcript'?'真实来源：当前 Codex 会话的语音定稿文字 · 按句同步，不重新识别音频':'来源：Codex 语音事件 · 不进行第二次 ASR';
+ document.getElementById('status').textContent=(names[s.status]||s.status)+' · '+s.events+' 个事件'+(s.lastSourceLagMs==null?'':' · 记录至接收 '+s.lastSourceLagMs+' ms（不含识别耗时）');
+ const list=document.getElementById('lines');list.replaceChildren();
+ for(const line of s.transcript){const box=document.createElement('article');box.dataset.role=line.role;const meta=document.createElement('small');meta.textContent=line.label+' · '+(line.final?'已定稿':'临时文字');const t=document.createElement('div');t.className='text';t.textContent=line.text;box.append(meta,t);list.append(box)}
+ document.getElementById('empty').hidden=s.transcript.length>0;
+ }catch{document.getElementById('status').textContent='本机订阅器已停止或连接失败；页面保留最后收到的字幕。'}finally{busy=false}}
+update();setInterval(update,250);
+</script></html>

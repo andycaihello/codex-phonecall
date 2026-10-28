@@ -70,13 +70,14 @@ class ToolTests(unittest.TestCase):
             with self.subTest(number=number):
                 args = server.validate_tool("phonebridge_prepare_call", {"number": number, "task": "咨询副卡实名"})
                 self.assertEqual(args["mode"], "builtin_voice")
-                self.assertEqual(args["max_seconds"], 60)
+                self.assertEqual(args["max_seconds"], 0)
         for number in ["12", "1" * 16, "++123", "123;", "123\rATD", "１２３", "12 34", 123, True]:
             with self.subTest(number=number), self.assertRaises(server.InvalidParams):
                 server.validate_tool("phonebridge_prepare_call", {"number": number, "task": "test"})
 
     def test_strict_bounded_fields(self):
         bad = [
+            ("phonebridge_prepare_call", {"number": "10010", "task": "x", "codex_thread_id": "../another"}),
             ("phonebridge_status", {"session_id": SID}),
             ("phonebridge_open_console", {"url": "https://example.com"}),
             ("phonebridge_start_call", {}),
@@ -86,7 +87,8 @@ class ToolTests(unittest.TestCase):
             ("phonebridge_prepare_call", {"number": "10010", "task": " "}),
             ("phonebridge_prepare_call", {"number": "10010", "task": "字" * 2001}),
             ("phonebridge_prepare_call", {"number": "10010", "task": "x", "max_seconds": True}),
-            ("phonebridge_prepare_call", {"number": "10010", "task": "x", "max_seconds": 301}),
+            ("phonebridge_prepare_call", {"number": "10010", "task": "x", "max_seconds": -1}),
+            ("phonebridge_prepare_call", {"number": "10010", "task": "x", "max_seconds": 2147483648}),
             ("phonebridge_prepare_call", {"number": "10010", "task": "x", "mode": "shell"}),
             ("phonebridge_steer_call", {"session_id": SID, "instruction": "字" * 1334}),
             ("phonebridge_read_call", {"session_id": SID, "cursor": True}),

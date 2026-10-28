@@ -95,13 +95,13 @@ final class RealtimeConversation {
 
     func start(apiKey: String, consentGranted: Bool, voice: RealtimeVoice = .marin,
                instructions: String = "用自然、简洁的普通话回应对方。你是 AI 语音助手。",
-               maximumDuration: TimeInterval = 300) throws {
+               maximumDuration: TimeInterval = 0) throws {
         guard consentGranted else { throw RealtimeFailure.consentRequired }
         guard !isRunning else { throw RealtimeFailure.alreadyStarted }
         guard (20...4096).contains(apiKey.utf8.count), apiKey.unicodeScalars.allSatisfy({ (33...126).contains($0.value) }) else {
             throw RealtimeFailure.invalidKey
         }
-        guard maximumDuration.isFinite, (1...300).contains(maximumDuration) else { throw RealtimeFailure.invalidConfiguration }
+        guard maximumDuration.isFinite, (0...TimeInterval(Int32.max)).contains(maximumDuration) else { throw RealtimeFailure.invalidConfiguration }
         let nextReducer = RealtimeProtocolReducer(voice: voice, instructions: instructions)
         _ = try nextReducer.sessionUpdate() // Validate before constructing/resuming a transport.
         let id = UUID()
@@ -126,11 +126,11 @@ final class RealtimeConversation {
                 }
             }
         }
-        deadlineTask = Task { [weak self] in
+        deadlineTask = maximumDuration > 0 ? Task { [weak self] in
             do { try await Task.sleep(nanoseconds: UInt64(maximumDuration * 1_000_000_000)) }
             catch { return }
             self?.fail(.sessionExpired, id: id)
-        }
+        } : nil
         handshakeTask = Task { [weak self] in
             do { try await Task.sleep(nanoseconds: 15_000_000_000) }
             catch { return }

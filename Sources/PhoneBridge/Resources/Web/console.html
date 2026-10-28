@@ -53,7 +53,7 @@
       </div>
       <div class="row">
         <label class="field grow"><span class="field-label">目标号码</span><input id="number" class="number" type="tel" inputmode="tel" autocomplete="off" spellcheck="false" placeholder="输入电话号码" maxlength="16" disabled></label>
-        <label class="field duration"><span class="field-label">最长通话</span><select id="duration" disabled><option value="60">60 秒</option><option value="180">180 秒</option><option value="300">300 秒</option><option id="custom-duration" hidden></option></select></label>
+        <label class="field duration"><span class="field-label">通话时限</span><select id="duration" disabled><option value="0">不限时</option><option value="60">60 秒</option><option value="180">180 秒</option><option value="300">300 秒</option><option id="custom-duration" hidden></option></select></label>
       </div>
       <label class="field"><span class="field-label">交给 AI 的任务</span><textarea id="instructions" rows="3" placeholder="例如：询问业务办理条件，核实所需材料，并把结果告诉我。" maxlength="6000" disabled></textarea></label>
       <div class="save-row"><span id="draft-note" class="draft-note"> </span><button id="save-config" class="quiet" type="button" disabled>保存设置</button></div>
@@ -102,7 +102,7 @@
   const $ = id => document.getElementById(id);
   const modeInputs = Array.from(document.querySelectorAll('input[name="mode"]'));
   const pending = new Set();
-  const permissions = {authorized:'已允许',notDetermined:'待允许',denied:'未允许',restricted:'受限制'};
+  const permissions = {authorized:'已允许',notDetermined:'待允许',denied:'未允许',restricted:'受限制',notRequired:'本模式不需要'};
   const encoder = new TextEncoder();
   let state = null, online = false, dirty = false, pollInFlight = false, commandSerial = 0, stateRevision = 0;
   let transcriptSignature = '', followLatest = true, previousRouteActive = false;
@@ -123,14 +123,14 @@
   function validDraft() {
     const d = draft();
     return /^\+?[0-9]{3,15}$/.test(d.number) && d.instructions.trim().length > 0 &&
-      encoder.encode(d.instructions).length <= 6000 && Number.isInteger(d.maximumSeconds) && d.maximumSeconds >= 1 && d.maximumSeconds <= 300;
+      encoder.encode(d.instructions).length <= 6000 && Number.isInteger(d.maximumSeconds) && d.maximumSeconds >= 0 && d.maximumSeconds <= 2147483647;
   }
   function setDraft(s) {
     modeInputs.forEach(input => { input.checked = input.value === s.modeID; });
     $('number').value = typeof s.number === 'string' ? s.number : '';
     $('instructions').value = typeof s.instructions === 'string' ? s.instructions : '';
-    const seconds = Number.isInteger(s.maximumSeconds) ? s.maximumSeconds : 60;
-    const custom = $('custom-duration'); custom.hidden = [60,180,300].includes(seconds);
+    const seconds = Number.isInteger(s.maximumSeconds) ? s.maximumSeconds : 0;
+    const custom = $('custom-duration'); custom.hidden = [0,60,180,300].includes(seconds);
     custom.value = String(seconds); custom.textContent = seconds + ' 秒';
     $('duration').value = String(seconds); $('voice').value = s.voice === 'cedar' ? 'cedar' : 'marin';
   }
@@ -229,8 +229,9 @@
     setText('dial-hint', needsDisconnect ? '先断开手机，再保存新号码。' : dirty ? '先保存设置，再连接。' : api ? '会先检查语音服务，再通过蓝牙拨打已保存号码。' : builtinReady ? '通过蓝牙拨号和挂断；实际电话声音需独立验证。' : '准备音频并确认当前对话的语音已启动。');
     $('api-interrupt-row').hidden = !api || !s.voiceActive; $('interrupt').disabled = !operable || !s.voiceActive;
     const backendError = typeof s.error === 'string' ? s.error : ''; setText('backend-error',backendError); $('backend-error').hidden = !backendError;
-    renderPermission('microphone-permission',s.microphonePermission); renderPermission('speech-permission',s.speechPermission);
-    const granted = s.microphonePermission === 'authorized' && s.speechPermission === 'authorized';
+    const needsSpeech = s.modeID === 'builtin_voice' && s.captionSource !== 'codex_transcript';
+    renderPermission('microphone-permission',s.microphonePermission); renderPermission('speech-permission',needsSpeech ? s.speechPermission : 'notRequired');
+    const granted = s.microphonePermission === 'authorized' && (!needsSpeech || s.speechPermission === 'authorized');
     $('permissions').disabled = !operable || s.permissionRequestPending || !idle(s) || granted;
     setText('permissions', s.permissionRequestPending ? '请查看系统授权窗口' : granted ? '权限已允许' : '允许麦克风与字幕');
     $('prepare-builtin').disabled = !operable || !idle(s) || (!s.connected && !s.continuousVoiceInstalled) || !granted || held || dirty;
@@ -256,7 +257,7 @@
     setText('service-result',s.voiceServiceStatus || '只检查服务连接，不拨电话。');
     $('live-state').className = 'live-state' + (s.voiceActive || s.callActive ? ' listening' : '');
     setText('live-label',s.voiceActive || s.phoneStateUnknown ? '需在手机核实' : s.callActive ? '拨号 / 通话中' : s.callPending ? '等待手机确认' : '等待通话');
-    setText('caption-note',s.captionWarning || (s.modeID === 'builtin_voice' ? '双方声音由本机转写，识别中文字可能修订。' : '双方实时字幕由语音服务提供。'));
+    setText('caption-note',s.captionWarning || (s.modeID === 'builtin_voice' ? (s.captionSource === 'codex_transcript' ? '字幕来自当前 Codex 语音的定稿文字，按句同步，不重新识别音频。' : '双方声音由本机转写，识别中文字可能修订。') : '双方实时字幕由语音服务提供。'));
     setText('version',typeof s.version === 'string' ? '· ' + s.version : '');
     setText('diagnostic-text',typeof s.diagnosticSummary === 'string' ? s.diagnosticSummary : '暂无诊断摘要。');
     renderTranscript(s);

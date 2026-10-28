@@ -189,7 +189,7 @@ final class CaptionWebServer: ObservableObject {
         func copyText(_ key: String, limit: Int = 512) {
             if let value = source[key] as? String { result[key] = String(value.prefix(limit)) }
         }
-        for key in ["status", "error", "captionWarning", "mode", "voiceServiceStatus"] { copyText(key, limit: 1024) }
+        for key in ["status", "error", "captionWarning", "mode", "voiceServiceStatus", "captionSource"] { copyText(key, limit: 1024) }
         for key in ["version", "modeID", "number", "voice", "pluginPhase", "dialerStage", "dialTransport", "microphonePermission", "speechPermission", "phoneName", "phoneAddress", "continuousVoiceTarget"] { copyText(key, limit: 128) }
         copyText("instructions", limit: 12_000)
         copyText("diagnosticSummary", limit: 4096)
@@ -200,9 +200,9 @@ final class CaptionWebServer: ObservableObject {
         }
         if let value = source["audioValidationDurationSeconds"] as? NSNumber,
            CFGetTypeID(value) != CFBooleanGetTypeID(), value.doubleValue == Double(value.intValue),
-           (0...300).contains(value.intValue) { result["audioValidationDurationSeconds"] = value.intValue }
+           (0...Int(Int32.max)).contains(value.intValue) { result["audioValidationDurationSeconds"] = value.intValue }
         if let value = source["maximumSeconds"] as? NSNumber, CFGetTypeID(value) != CFBooleanGetTypeID(),
-           value.doubleValue.isFinite, value.doubleValue == Double(value.intValue), (1...300).contains(value.intValue) {
+           value.doubleValue.isFinite, value.doubleValue == Double(value.intValue), (0...Int(Int32.max)).contains(value.intValue) {
             result["maximumSeconds"] = value.intValue
         }
         for key in ["bluetoothCallControlReady", "audioValidationPrepared", "audioValidationReady", "validationPromptSent", "connected", "busy", "phoneStateUnknown", "callActive", "callPending", "voiceActive", "voiceServiceChecking",
