@@ -1,0 +1,17 @@
+PhoneBridge (codex-phonecall)
+Copyright 2026 Andy Cai and the PhoneBridge contributors.
+
+The original project code, documentation and project-created assets are
+distributed under the Apache License, Version 2.0. See LICENSE.
+
+This project includes Apple NullAudio sample code:
+  Copyright 2024 Apple Inc.
+  integration/continuous-audio/vendor/apple-null-audio/
+That code retains its original MIT license. Its license text is preserved at:
+  integration/continuous-audio/vendor/apple-null-audio/LICENSE.txt
+The driver build also includes that license in the generated driver bundles.
+
+OpenAI, Codex, ChatGPT, HarmonyOS, Bluetooth and related third-party names or
+marks belong to their respective owners. This project is independently developed
+and is not an official product of, endorsed by, or affiliated with those owners.
+No third-party trademark rights are granted by this project license.

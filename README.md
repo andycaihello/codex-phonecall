@@ -1,5 +1,7 @@
 # PhoneBridge 通话桥
 
+[Apache-2.0](LICENSE) · [参与贡献](CONTRIBUTING.md) · [路线图](docs/ROADMAP.md) · [安全报告](SECURITY.md)
+
 <img src="docs/assets/phonebridge-icon.png" alt="PhoneBridge 图标" width="112">
 
 **在 Codex 对话里，让 AI 通过你的鸿蒙手机拨打真实电话，并把双方的通话字幕带回当前对话。**
@@ -211,4 +213,10 @@ docs/                           架构、故障排查和验收说明
 
 开发与验证命令见 [开发说明](docs/DEVELOPMENT.md)，模块关系见 [架构](docs/ARCHITECTURE.md)，本次结果见 [源码发布检查](docs/VALIDATION.md)。`scripts/export-migration-kit.py` 与 `scripts/install-macos.py` 是旧迁移包工作流，不是本仓库的新用户安装入口，也尚未覆盖完整连续音频驱动交付。
 
-本项目并非 OpenAI 或华为官方产品。第三方代码及素材说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。仓库尚未授予统一的开源许可证；公开可访问不等于获得任意再分发、商用或品牌使用授权。
+## 开源许可与参与贡献
+
+项目原创代码、文档和项目创建的素材采用 [Apache License 2.0](LICENSE)，版权与归属说明见 [NOTICE](NOTICE)。Apple NullAudio 示例继续适用其原 MIT 许可；第三方代码及素材边界见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。本项目并非 OpenAI 或华为官方产品，不授予第三方商标使用权。
+
+欢迎通过 Issue 和 PR 参与，尤其是其他平台后端、第二套硬件验收和安装体验改进。开始前阅读 [贡献指南](CONTRIBUTING.md)、[社区准则](CODE_OF_CONDUCT.md) 和 [路线图](docs/ROADMAP.md)。漏洞或隐私问题请按 [安全政策](SECURITY.md) 私下报告。
+
+首次发布为 **v0.7.7-preview 源码预览版**，不包含可通用安装的手机签名包或已公证 Mac 安装包。[更新记录](CHANGELOG.md)。

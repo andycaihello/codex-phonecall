@@ -1,0 +1,21 @@
+name: 功能或平台建议
+description: 讨论新能力或平台适配。
+title: "[Feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 使用场景与目标
+      description: 谁遇到了什么问题，希望最终看到什么行为？
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方案和平台能力依据
+      description: 平台公开 API、权限、音频和后台约束；不确定之处请标明。
+  - type: textarea
+    id: validation
+    attributes:
+      label: 如何验证
+      description: 可做的离线检查、所需硬件和获授权的实机测试；不要提供真实电话号码。

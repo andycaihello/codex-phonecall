@@ -1,0 +1,45 @@
+name: Offline checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: offline-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Source and MCP (offline)
+    if: github.event.repository.private == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - run: python3 scripts/check-source.py
+      - run: python3 plugins/phonebridge/mcp/test_server.py
+  swift:
+    name: Swift offline checks
+    if: github.event.repository.private == false
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Show toolchain
+        run: |
+          swift --version
+          xcrun --sdk macosx --show-sdk-version
+      - run: swift run BridgeChecks
+      - run: python3 integration/test-coordinator-bluetooth-dial.py
+      - run: python3 integration/test-caption-web.py
+      - run: python3 integration/test-builtin-captions.py
+      - run: python3 integration/test-realtime-conversation.py

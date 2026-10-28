@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 私密安全报告
+    url: https://github.com/andycaihello/codex-phonecall/security/advisories/new
+    about: 漏洞、凭据、越权或隐私问题请私下报告，不要公开 Issue。

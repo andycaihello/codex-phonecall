@@ -1,0 +1,33 @@
+name: 问题反馈
+description: 提交可复现且已脱敏的问题；安全漏洞请使用私密报告。
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: 请勿填写真实号码、蓝牙地址、令牌、密钥、完整控制台 URL 或通话全文。漏洞按 SECURITY.md 私下报告。
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境与版本
+      description: Mac / 手机型号、系统版本、App / 插件版本、使用的语音模式。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 最小复现步骤
+      description: 列出操作、预期结果与实际结果，注明失败发生在连接、拨号、音频、字幕还是挂断。
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 脱敏证据与已做检查
+      description: 说明哪些状态是工具报告，哪些经过真实听感或手机状态核验；只附已审查的截图或错误摘要。
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: 隐私检查
+      options:
+        - label: 我已移除个人号码、设备标识、密钥、运行时 URL 与通话隐私。
+          required: true
