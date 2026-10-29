@@ -33,7 +33,7 @@ final class PluginCallSession: ObservableObject {
     private var preparedAt: TimeInterval = 0
     private var generation = UUID()
     var currentIncomingSelected: Bool {
-        !terminal && incoming && boundIncomingID != nil && session.incomingCallID == boundIncomingID
+        !terminal && incoming && session.incomingCallID != nil && (boundIncomingID == nil || session.incomingCallID == boundIncomingID)
     }
     var captionURL: (() -> URL?)?
 
@@ -122,9 +122,14 @@ final class PluginCallSession: ObservableObject {
                 try await self.connectAndWait(run)
                 try self.check(run)
                 if self.incoming {
-                    guard let token = self.session.incomingSelectionID, self.session.incomingCallID == token else { throw BridgeError("未检测到可接听的当前来电，请让对方来电后再发起代接。") }
-                    self.boundIncomingID = token
-                    self.append("incoming_call", ["callerIdentity": "unknown", "message": "已选定当前振铃来电；不根据声音或号码推断身份。"])
+                    if let token = self.session.incomingSelectionID {
+                        guard self.session.incomingCallID == token else { throw BridgeError("准备时的来电已经改变，未选择下一通。") }
+                        self.boundIncomingID = token
+                        self.append("incoming_call", ["callerIdentity": "unknown", "message": "已选定当前振铃来电；不根据声音或号码推断身份。"])
+                    } else {
+                        self.append("incoming_standby", ["message": "只准备连接和音频；有来电后须由机主明确要求接听，不自动接听。"])
+                    }
+                    self.session.endIncomingSelection()
                 }
                 try self.session.prepareBuiltinVoice()
                 self.phase = "awaiting_user_voice_start"
@@ -187,9 +192,10 @@ final class PluginCallSession: ObservableObject {
         guard incoming else { throw BridgeError("外拨任务不能接听来电。") }
         if started { return readCurrent(after: sequence) } // A retry cannot answer a later call.
         guard !terminal, operation == nil, phase == "ready", session.builtinVoiceConfirmed,
-              let token = boundIncomingID, session.incomingCallID == token else {
+              let token = boundIncomingID ?? session.incomingCallID, session.incomingCallID == token else {
             throw BridgeError("当前来电已改变或内置语音未确认，未接听。")
         }
+        boundIncomingID = token // Bind at the owner's explicit answer command if prepared while idle.
         try session.answerIncoming(id: token)
         started = true; phase = "answering"
         append("state", ["phase": phase, "message": "已请求蓝牙接听；接通、声音和对方听见分别等待确认。"])
@@ -355,7 +361,7 @@ final class PluginCallSession: ObservableObject {
         return ["session_id": identifier ?? "", "phase": phase, "terminal": terminal,
             "cursor": sequence, "gap": cursor > 0 && cursor < first - 1,
             "direction": incoming ? "incoming" : "outgoing",
-            "incomingAvailable": !terminal && incoming && boundIncomingID != nil && session.incomingCallID == boundIncomingID,
+            "incomingAvailable": !terminal && incoming && session.incomingCallID != nil && (boundIncomingID == nil || session.incomingCallID == boundIncomingID),
             "mode": selectedMode.rawValue, "events": entries.filter { ($0["seq"] as? Int ?? 0) > cursor },
             "transcript": ownedTranscript,
             "phoneCallActive": terminal ? completedPhoneCallActive : session.callActive, "audioHeld": session.builtinRoute.active,

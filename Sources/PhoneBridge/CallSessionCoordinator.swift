@@ -65,6 +65,7 @@ final class CallSessionCoordinator: ObservableObject {
         incomingSelectionID = incomingMode ? incomingCallID : nil
     }
     private var connectionIncoming = false
+    func endIncomingSelection() { selectingIncoming = false }
     var incomingCallID: String? {
         guard incomingMode, connected, state["incomingAvailable"] as? Bool == true,
               let id = state["incomingID"] as? String, id != "0", !id.isEmpty else { return nil }
@@ -361,8 +362,8 @@ final class CallSessionCoordinator: ObservableObject {
                     throw BridgeError("手机蓝牙电话控制握手未完成，未启用其他拨号方式。")
                 }
                 if self.incomingMode {
-                    guard self.state["incomingAvailable"] as? Bool == true,
-                          self.incomingSelectionID == self.state["incomingID"] as? String else {
+                    guard self.incomingSelectionID == nil || (self.state["incomingAvailable"] as? Bool == true &&
+                          self.incomingSelectionID == self.state["incomingID"] as? String) else {
                         throw BridgeError("连接时没有同一通可接听来电，已停止，不等待下一通。")
                     }
                 }

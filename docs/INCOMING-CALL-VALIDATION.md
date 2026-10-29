@@ -6,7 +6,7 @@
 
 1. 手机端通话桥已启动，Mac 已配对并安装连续语音接口。使用已授权的测试手机呼入。
 2. 在启用候选插件的 Codex 对话说明“代接当前来电”和交流目的。
-3. 插件以 `phonebridge_prepare_incoming` 建立只接听任务；随后 `phonebridge_prepare_builtin_voice` 连接并绑定首次观察到的这通振铃，准备连续音频。无来电、已有活动电话或振铃被替换时停止。
+3. 插件以 `phonebridge_prepare_incoming` 建立只接听任务；随后 `phonebridge_prepare_builtin_voice` 连接并准备连续音频。准备时已有来电就绑定该振铃；原振铃被替换时停止。空闲时只准备待机，不自动接听，机主之后明确要求接听时才绑定当前振铃。已有活动电话时不介入。
 4. 保持已经运行的当前 Codex 语音。尚未启动时，等待文字回复结束再启动语音；首次音频准备可能仍需选择系统默认／PhoneBridge 虚拟输入，不能把用户说“语音已启动”当作实际采集端点已验证。
 5. 机主确认后调用 `phonebridge_confirm_builtin_voice`，再调用 `phonebridge_answer_call`。接听前重新查询通话状态，原生程序在 ATA 首次写出前再次核对振铃实例。
 6. 活动通话状态出现后启动 PCM 并切换连续音频至电话；AI 说明身份和目的，双方字幕同步控制台。实际手机蓝牙路由、远端听见、输入识别仍分别验收。

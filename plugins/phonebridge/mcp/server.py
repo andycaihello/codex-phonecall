@@ -134,7 +134,7 @@ TOOLS = [
                                      "description": "Current Codex conversation UUID. In built-in voice mode, mirrors only this conversation's newly committed voice text instead of running Apple ASR. Never guess another conversation's ID."},
                  "max_seconds": {"type": "integer", "minimum": 0, "maximum": 2147483647, "default": 0,
                                  "description": "0 means no fixed call duration. Set a positive number only when the owner requests a time limit."}}, ["number", "task"])),
-    tool("prepare_incoming", "Reserve one owner-authorized current incoming call. No destination number is accepted; this receive-only task cannot dial. Does not connect, answer, capture audio, or start Codex voice. Then prepare_builtin_voice, confirm current voice, and answer_call. The ringing episode is bound during preparation and never replaced with a later caller.",
+    tool("prepare_incoming", "Reserve an owner-authorized receive-only assistant task. No destination number is accepted; it cannot dial. Does not connect, answer, capture audio, or start Codex voice. Then prepare_builtin_voice and confirm current voice. If idle, preparation only warms audio; ringing alone never answers. Only call answer_call after the owner explicitly asks to answer the current caller. Any selected ringing episode is never replaced with a later caller.",
          schema({"task": {"type": "string", "minLength": 1, "maxLength": 6000},
                  "codex_thread_id": SESSION_FIELD,
                  "max_seconds": {"type": "integer", "minimum": 0, "maximum": 2147483647, "default": 0}}, ["task"])),

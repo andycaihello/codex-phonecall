@@ -27,6 +27,7 @@ struct ConversationLine: Identifiable {
     var incomingMode = false
     var incomingSelectionID: String?
     func beginIncomingSelection() { incomingSelectionID = incomingMode ? incomingCallID : nil }
+    func endIncomingSelection() {}
     var incomingCallID: String?
     var answers = 0
     func answerIncoming(id: String) throws { answers += 1; ownsActiveCall = true; callActive = true; callPending = false; voiceActive = true; incomingCallID = nil }
@@ -277,7 +278,13 @@ private struct PluginChecks {
             let (s, p, _) = fixture("incoming-no-caller")
             let id = try p.prepareIncoming(task: "current caller only", maximumSeconds: 0, codexThreadID: nil)["session_id"] as! String
             _ = try p.prepareBuiltin(id: id); await pump(); _ = try p.read(id: id, after: 0)
-            check(s.answers == 0 && s.dials == 0 && !s.error.isEmpty, "missing caller stops setup without a call")
+            check(s.answers == 0 && s.dials == 0 && s.error.isEmpty && p.phase == "awaiting_user_voice_start", "idle preparation only warms audio without answering")
+            _ = try p.confirmBuiltin(id: id)
+            check(fails { _ = try p.answer(id: id) } && s.answers == 0, "idle standby cannot answer without a ringing episode")
+            s.incomingCallID = "51"
+            check(p.currentIncomingSelected && s.answers == 0, "ringing alone never auto-answers standby")
+            _ = try p.answer(id: id)
+            check(s.answers == 1 && s.dials == 0, "explicit owner answer command binds current standby caller")
         }
         do {
             let (_, p, _) = fixture("outgoing-answer-rejected"); let id = try prepare(p)
