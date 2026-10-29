@@ -26,6 +26,12 @@ jobs:
       - run: python3 scripts/check-source.py
       - run: python3 plugins/phonebridge/mcp/test_server.py
       - run: python3 integration/test-codex-voice-captions.py
+      - name: HFP outgoing and incoming state machines (offline)
+        run: |
+          c++ -std=c++17 integration/test-hfp-control-machine.cpp -o /tmp/hfp-outgoing-checks
+          /tmp/hfp-outgoing-checks
+          c++ -std=c++17 integration/test-hfp-incoming.cpp -o /tmp/hfp-incoming-checks
+          /tmp/hfp-incoming-checks
   swift:
     name: Swift offline checks
     if: github.event.repository.private == false
@@ -41,6 +47,8 @@ jobs:
           xcrun --sdk macosx --show-sdk-version
       - run: swift run BridgeChecks
       - run: python3 integration/test-coordinator-bluetooth-dial.py
+      - run: python3 integration/test-coordinator-incoming.py
+      - run: python3 integration/test-plugin-call-session.py
       - run: python3 integration/test-caption-web.py
       - run: python3 integration/test-builtin-captions.py
       - run: python3 integration/test-realtime-conversation.py

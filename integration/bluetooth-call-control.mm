@@ -17,6 +17,7 @@ static NSString *const helperUUID = @"9d8b4c21-742e-4e0c-9c6f-4a1fa5c3a701";
 static volatile sig_atomic_t interrupted = 0;
 static bool outputFailed = false;
 static std::string permittedDialNumber;
+static bool incomingOnly = false;
 static constexpr double closeCallbackGraceSeconds = 3.0;
 static void onSignal(int s) { interrupted = s; }
 static double now() { timespec t{}; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec + t.tv_nsec / 1e9; }
@@ -37,11 +38,15 @@ static NSString *validateRequest(id object) {
     if ([r[@"id"] hasPrefix:@"cleanup-"]) return @"reserved_id_prefix";
     NSString *op = r[@"op"];
     NSArray *ops = @[@"helper_connect", @"helper_status", @"helper_exchange", @"helper_audio", @"helper_dial_ui", @"helper_stop", @"open_hsp", @"hsp_audio", @"close_hsp",
-        @"connect", @"connect_hfp_anchor", @"status", @"refresh", @"dial", @"hangup", @"disconnect", @"stop"];
+        @"connect", @"connect_hfp_anchor", @"status", @"refresh", @"dial", @"answer", @"hangup", @"disconnect", @"stop"];
     if (![op isKindOfClass:NSString.class] || ![ops containsObject:op]) return @"invalid_operation";
     NSSet *keys = [NSSet setWithArray:r.allKeys];
     BOOL numberedOperation = [op isEqualToString:@"dial"] || [op isEqualToString:@"helper_dial_ui"];
-    NSSet *expected = [NSSet setWithArray:numberedOperation ? @[@"id", @"op", @"number"] : @[@"id", @"op"]];
+    BOOL answering = [op isEqualToString:@"answer"];
+    if (incomingOnly && numberedOperation) return @"incoming_only; dial_not_allowed";
+    if (answering && !incomingOnly) return @"answer_requires_incoming_mode";
+    if (answering && !matches(r[@"incoming_id"], @"^[1-9][0-9]{0,14}$")) return @"invalid_incoming_id";
+    NSSet *expected = [NSSet setWithArray:numberedOperation ? @[@"id", @"op", @"number"] : answering ? @[@"id", @"op", @"incoming_id"] : @[@"id", @"op"]];
     if (![keys isEqualToSet:expected]) return @"unexpected_or_missing_fields";
     if (numberedOperation) {
         NSString *n = r[@"number"];
@@ -152,6 +157,8 @@ static NSDictionary *uintElement(int n, int bytes) { return @{@"DataElementType"
     NSMutableDictionary *s = [@{@"hfpStage": @(hfp.stage.c_str()), @"hfpReady": @(hfp.ready), @"slcReady": @(hfp.ready), @"protocolFailed": @(hfp.failed),
         @"call": @(hfp.call), @"callsetup": @(hfp.setup), @"callheld": @(hfp.held), @"ownDial": @(hfp.ownDial),
         @"setup": @(hfp.setup), @"held": @(hfp.held),
+        @"incomingOnly": @(hfp.incomingOnly), @"ownIncoming": @(hfp.ownIncoming),
+        @"incomingAvailable": @(hfp.incomingAvailable()), @"incomingID": [NSString stringWithFormat:@"%llu", (unsigned long long)hfp.incomingToken],
         @"idleVerified": @(hfp.idleVerified), @"helperSlcControlComplete": @(self.helperSLC), @"helperActive": @(self.helperActive),
         @"helperStateKnown": @(self.helperStateKnown), @"helperPeerVerified": @(self.helperPeerVerified),
         @"helperStageState": self.helperStageState, @"helperStatusAgeSeconds": @(self.helperStatusAt > 0 ? now() - self.helperStatusAt : -1),
@@ -219,10 +226,10 @@ static NSDictionary *uintElement(int n, int bytes) { return @{@"DataElementType"
     }
     if (![self live:@"hfp"]) { [self result:rid ok:NO detail:@"HFP_channel_not_open"]; return; }
     BTSlot *control = [self live:@"hfp"];
-    if ([op isEqualToString:@"hangup"] && control.tx.length && !control.txStarted && hfp.pendingKind() == "dial") {
-        [control.tx setLength:0]; hfp.cancelUnwrittenDial();
+    if ([op isEqualToString:@"hangup"] && control.tx.length && !control.txStarted && (hfp.pendingKind() == "dial" || hfp.pendingKind() == "answer")) {
+        [control.tx setLength:0]; hfp.cancelUnwrittenControl();
     }
-    hfp.enqueue(op.UTF8String, rid.UTF8String, [r[@"number"] UTF8String] ?: "");
+    hfp.enqueue(op.UTF8String, rid.UTF8String, [r[@"number"] UTF8String] ?: "", [r[@"incoming_id"] longLongValue]);
 }
 - (BOOL)verifyPhone {
     return self.device && self.device.isPaired && [normalizedAddress(self.device.addressString) isEqualToString:phoneAddress] && [self.device.name isEqualToString:phoneName];
@@ -546,8 +553,8 @@ static NSDictionary *uintElement(int n, int bytes) { return @{@"DataElementType"
     if (self.shutdown) return;
     self.shutdown = YES; self.shutdownAt = now(); self.stopID = requestID;
     BTSlot *control = [self live:@"hfp"];
-    if (control.tx.length && !control.txStarted && hfp.pendingKind() == "dial") {
-        [control.tx setLength:0]; hfp.cancelUnwrittenDial();
+    if (control.tx.length && !control.txStarted && (hfp.pendingKind() == "dial" || hfp.pendingKind() == "answer")) {
+        [control.tx setLength:0]; hfp.cancelUnwrittenControl();
     }
     hfp.beginStop();
     BTSlot *headset = [self live:@"hsp"];
@@ -563,7 +570,7 @@ static NSDictionary *uintElement(int n, int bytes) { return @{@"DataElementType"
         [helper.tx setLength:0]; [self result:self.helperPending[@"id"] ok:NO detail:@"cancelled_for_shutdown_before_write"]; self.helperPending = nil;
     }
     emit(@{@"event": @"shutdown_started", @"reason": reason, @"state": self.state});
-    if (hfp.ownDial && hfp.ready && !hfp.failed) self.cleanupHangupQueued = hfp.enqueue("hangup", "cleanup-hangup");
+    if (hfp.ownsCall() && hfp.ready && !hfp.failed) self.cleanupHangupQueued = hfp.enqueue("hangup", "cleanup-hangup");
 }
 - (void)tick {
     if (self.finished) return;
@@ -602,7 +609,7 @@ static NSDictionary *uintElement(int n, int bytes) { return @{@"DataElementType"
         self.helperDeadline = t + ([self.helperPending[@"op"] isEqualToString:@"audio"] ? 8 : 4);
     }
     if (!self.shutdown) return;
-    if (!self.cleanupHelperQueued && (!hfp.ownDial || t - self.shutdownAt >= 6)) {
+    if (!self.cleanupHelperQueued && (!hfp.ownsCall() || t - self.shutdownAt >= 6)) {
         self.cleanupHelperQueued = YES;
         if (helper) [self.helperQueue insertObject:@{@"id": @"cleanup-helper-stop", @"op": @"stop"} atIndex:0];
     }
@@ -617,7 +624,7 @@ static NSDictionary *uintElement(int n, int bytes) { return @{@"DataElementType"
         BOOL channelsClosed = YES; for (BTSlot *s in self.slots.allValues) if (!s.closed) channelsClosed = NO;
         IOReturn removed = self.localHSP ? [self.localHSP removeServiceRecord] : 0; self.localHSP = nil;
         BOOL pendingOpen = self.opening != nil;
-        BOOL callEnded = !hfp.ownDial || hfp.idleVerified;
+        BOOL callEnded = !hfp.ownsCall() || hfp.idleVerified;
         // The phone acknowledges stop before it retires its auxiliary listener.
         // On some HarmonyOS builds that listener closure also closes the control
         // RFCOMM channel, so a post-stop inactive response cannot exist. The
@@ -650,6 +657,7 @@ int main(int argc, const char **argv) {
             NSString *arg = [NSString stringWithUTF8String:argv[i]];
             if (!arg || [seen containsObject:arg]) { error = @"invalid_or_duplicate_argument"; break; } [seen addObject:arg];
             if ([arg isEqualToString:@"--run"]) run = true;
+            else if ([arg isEqualToString:@"--incoming-only"]) incomingOnly = true;
             else if ([arg isEqualToString:@"--validate-args"]) validate = true;
             else if ([arg isEqualToString:@"--validate-commands"]) validateCommands = true;
             else if ([arg isEqualToString:@"--help"]) help = true;
@@ -672,12 +680,13 @@ int main(int argc, const char **argv) {
             [seen containsObject:@"--phone-address"] || [seen containsObject:@"--phone-name"])) error = @"validate_commands_accepts_only_allow_number";
         if (!error && !help) {
             if (!run && !validateCommands) error = @"explicit_run_or_validate_commands_required";
-            else if (![seen containsObject:@"--allow-number"] || permittedDialNumber.empty()) error = @"allow_number_required";
+            else if (incomingOnly && [seen containsObject:@"--allow-number"]) error = @"incoming_and_outgoing_modes_are_exclusive";
+            else if (!incomingOnly && (![seen containsObject:@"--allow-number"] || permittedDialNumber.empty())) error = @"allow_number_required";
             else if (run) error = PBPhoneIdentityError(phoneAddress, phoneName);
         }
         signal(SIGPIPE, SIG_IGN);
         if (error || help || validate || (!run && !validateCommands)) {
-            emit(@{@"event": error ? @"args_error" : validate ? @"args_valid" : @"help", @"ok": @(!error), @"detail": error ?: @"--run --phone-address AA:BB:CC:DD:EE:FF --phone-name NAME --allow-number NUMBER [--max-seconds 0=unlimited or 15..2147483647] [--validate-args]; JSONL stdin; startup performs no connection. --validate-commands --allow-number NUMBER is offline only.", @"deviceQueries": @NO, @"dialed": @NO});
+            emit(@{@"event": error ? @"args_error" : validate ? @"args_valid" : @"help", @"ok": @(!error), @"detail": error ?: @"--run --phone-address AA:BB:CC:DD:EE:FF --phone-name NAME (--allow-number NUMBER | --incoming-only) [--max-seconds 0=unlimited or 15..2147483647] [--validate-args]; JSONL stdin; startup performs no connection. --validate-commands --allow-number NUMBER is offline only.", @"deviceQueries": @NO, @"dialed": @NO});
             return error ? 2 : 0;
         }
         if (validateCommands) {
@@ -693,7 +702,8 @@ int main(int argc, const char **argv) {
         int outputFlags = fcntl(STDOUT_FILENO, F_GETFL);
         if (outputFlags < 0 || fcntl(STDOUT_FILENO, F_SETFL, outputFlags | O_NONBLOCK)) return 2;
         BTController *controller = [BTController new];
-        controller->hfp.setPermittedNumberBeforeStart(permittedDialNumber);
+        if (incomingOnly) controller->hfp.configureIncomingBeforeStart();
+        else controller->hfp.setPermittedNumberBeforeStart(permittedDialNumber);
         NSMutableData *pending = [NSMutableData data];
         const double started = now(); bool eof = false;
         emit(@{@"event": @"ready", @"deviceQueries": @NO, @"dialed": @NO, @"maxSeconds": @(limit), @"helperUUID": helperUUID, @"state": controller.state});

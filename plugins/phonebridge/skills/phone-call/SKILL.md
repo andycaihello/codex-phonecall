@@ -39,6 +39,18 @@ Use the continuous path when status reports it available. The phone audio is pat
 
 Real two-way and repeated-call tests succeeded on this Mac with version 0.7.7. Treat each new call's readiness and hearing as separate evidence; this does not guarantee every future connection. Built-in voice uses the user's plan allowance rather than API credits. Its initial start still requires the user's normal Codex voice control. Do not automate blocked Codex UI or private voice endpoints. If continuous devices are unavailable, report the specific readiness failure rather than silently reverting to the previously unreliable direct-phone microphone sequence.
 
+## Answer a current incoming call (experimental)
+
+Use only after the owner explicitly asks to answer the current ringing telephone. This is manual per-call answering, not unattended auto-answer or future-call authorization. No caller identity/number lookup is implemented; do not infer identity from ringing or speech.
+
+1. Call `phonebridge_prepare_incoming(task, codex_thread_id, max_seconds: 0)`. Do not supply a dial number. The session is receive-only and cannot dial. If another conversation owns the phone, do not take over.
+2. Call `phonebridge_prepare_builtin_voice` for that session. It connects the helper and HFP control, binds the first observed ringing episode, and prepares stable audio. If that call disappears or is replaced during preparation, stop; do not select the next caller automatically. If no incoming call is detected, report it without answering or rejecting anything.
+3. If the current Codex voice session is already running, preserve it. Otherwise end the text turn so the owner can start voice. First-time virtual-device setup may still need the owner to choose System Default/PhoneBridge input. The plugin cannot start desktop voice itself.
+4. After owner confirmation use `phonebridge_confirm_builtin_voice`, then `phonebridge_answer_call`. Never use `phonebridge_start_call` for an incoming lease. A retried answer applies only to this task, never to a later caller. Verify answered state and incoming speech before greeting promptly with AI identity and the owner's purpose.
+5. Reuse read_call, live captions and end_call. A spoken goodbye is not a hangup. Cancellation before ATA must not reject the ringing call or hang up a call the owner answered manually. Do not promise live success before real incoming-call validation on the target phone.
+
+The initial incoming implementation supports built-in voice only; no automatic answering, call waiting, hold/merge, caller identity verification or transfer to a human is implemented. Outbound calling remains a separate destination-scoped path.
+
 ## OpenAI Realtime voice
 
 The app handles an independent voice agent with this task's supplied instructions. It is not automatically the entire current Codex conversation.

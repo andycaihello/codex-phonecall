@@ -34,7 +34,7 @@ private struct ConsoleSettings: Codable {
         }
         // A separate projection avoids exposing native logs, credentials, call
         // lease IDs, audio data or private diagnostic paths to the page.
-        return ["version": "0.7.8", "backendRunning": true,
+        return ["version": "0.7.9", "backendRunning": true,
             "status": session.status, "captionWarning": session.captionWarning, "error": lastError.isEmpty ? session.error : lastError,
             "captionSource": session.usesCodexCaptions ? "codex_transcript" : "apple_speech",
             "codexCaptions": session.codexCaptions.snapshot,
@@ -45,6 +45,7 @@ private struct ConsoleSettings: Codable {
             "audioValidationDurationSeconds": session.audioValidationDurationSeconds,
             "audioValidationVoiceConfirmedAt": session.audioValidationVoiceConfirmedAt,
             "audioValidationStopReason": session.audioValidationStopReason,
+            "incomingMode": session.incomingMode, "incomingAvailable": pluginCalls.currentIncomingSelected,
             "phoneStateUnknown": session.phoneStateUnknown, "dialerStage": session.dialerStage,
             "bluetoothCallControlReady": session.bluetoothCallControlReady, "dialTransport": "bluetooth_hfp",
             "callActive": session.callActive, "callPending": session.callPending, "voiceActive": session.voiceActive,
@@ -85,8 +86,8 @@ private struct ConsoleSettings: Codable {
                 }
                 return number.boolValue
             }
-            func idle(allowLease: Bool = false) throws {
-                guard !session.busy, !session.callActive, !session.callPending, !session.voiceActive,
+            func idle(allowLease: Bool = false, allowRinging: Bool = false) throws {
+                guard !session.busy, !session.callActive, (!session.callPending || (allowRinging && session.incomingMode)), !session.voiceActive,
                       webDialTask == nil, !webPermissionPending,
                       allowLease || !session.pluginSessionActive else {
                     throw BridgeError("当前任务正在使用通话桥，请先结束或取消该任务。")
@@ -109,6 +110,7 @@ private struct ConsoleSettings: Codable {
                 guard !session.continuousVoice.active || mode == .builtinVoice else {
                     throw BridgeError("连续 Codex 语音仍在运行，请先结束并恢复音频，再切换 API 语音模式。")
                 }
+                session.incomingMode = false; session.beginIncomingSelection()
                 session.number = number; session.instructions = instructions; session.mode = mode
                 session.voice = voice; session.maximumSeconds = duration.intValue
                 session.builtinVoiceConfirmed = false
@@ -181,6 +183,8 @@ private struct ConsoleSettings: Codable {
                 }
                 session.dial(useAI: false, systemDialerDiagnostic: true)
                 if !session.error.isEmpty { throw BridgeError(session.error) }
+            case "answer_incoming":
+                try pluginCalls.answerFromConsole()
             case "dial":
                 try idle()
                 guard session.connectedForCurrentNumber else { throw BridgeError("请先保存本次号码并连接手机。") }
@@ -188,7 +192,7 @@ private struct ConsoleSettings: Codable {
                 else { session.dial(useAI: true); if !session.error.isEmpty { throw BridgeError(session.error) } }
             case "interrupt": session.interruptSpeech()
             case "request_permissions":
-                try idle(allowLease: true)
+                try idle(allowLease: true, allowRinging: true)
                 webPermissionPending = true
                 Task { [weak self] in
                     guard let self else { return }

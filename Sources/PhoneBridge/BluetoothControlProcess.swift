@@ -39,17 +39,20 @@ final class BluetoothControlProcess {
     private var stopping = false
     var isRunning: Bool { process?.isRunning == true }
 
-    func launch(_ executable: URL, allowedNumber: String, phone: PhonePeerConfiguration) throws {
+    func launchIncoming(_ executable: URL, phone: PhonePeerConfiguration) throws {
+        try launch(executable, allowedNumber: "", phone: phone, incomingOnly: true)
+    }
+    func launch(_ executable: URL, allowedNumber: String, phone: PhonePeerConfiguration, incomingOnly: Bool = false) throws {
         guard process == nil else { throw BridgeError("蓝牙控制进程仍在运行或清理。") }
-        guard PhoneNumber.valid(allowedNumber) else { throw BridgeError("本次允许拨打的号码格式无效。") }
+        guard incomingOnly ? allowedNumber.isEmpty : PhoneNumber.valid(allowedNumber) else { throw BridgeError("本次允许拨打的号码格式无效。") }
         let run = UUID(); runID = run
         diagnosticEvents.removeAll(keepingCapacity: true)
         cleanupResult = nil; exitStatus = nil; launched = false; stdoutEnded = false; outputValid = true
         stopping = false
         let child = Process(), input = Pipe(), output = Pipe(), error = Pipe()
         child.executableURL = executable
-        child.arguments = ["--run", "--max-seconds", "0", "--allow-number", allowedNumber,
-            "--phone-address", phone.address, "--phone-name", phone.name]
+        child.arguments = ["--run", "--max-seconds", "0", "--phone-address", phone.address, "--phone-name", phone.name] +
+            (incomingOnly ? ["--incoming-only"] : ["--allow-number", allowedNumber])
         child.standardInput = input; child.standardOutput = output; child.standardError = error
         output.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData

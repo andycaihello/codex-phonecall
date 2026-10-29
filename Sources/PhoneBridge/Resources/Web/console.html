@@ -57,7 +57,8 @@
       </div>
       <label class="field"><span class="field-label">交给 AI 的任务</span><textarea id="instructions" rows="3" placeholder="例如：询问业务办理条件，核实所需材料，并把结果告诉我。" maxlength="6000" disabled></textarea></label>
       <div class="save-row"><span id="draft-note" class="draft-note"> </span><button id="save-config" class="quiet" type="button" disabled>保存设置</button></div>
-      <div class="actions"><button id="connection" type="button" disabled>连接手机</button><button id="dial" class="primary" type="button" disabled>打开手机拨号</button><button id="hangup" class="danger" type="button" disabled>结束通话</button></div>
+      <div class="actions"><button id="connection" type="button" disabled>连接手机</button><button id="answer-incoming" class="primary" type="button" hidden disabled>接听当前来电</button><button id="dial" class="primary" type="button" disabled>打开手机拨号</button><button id="hangup" class="danger" type="button" disabled>结束通话</button></div>
+      <p id="incoming-note" class="hint" hidden>手动代接当前来电 · 来电身份未核验，不会自动接听下一通</p>
       <p id="dial-hint" class="hint">准备好语音后，在手机系统界面确认拨号。</p>
       <div id="api-interrupt-row" class="minor-actions" hidden><button id="interrupt" type="button" disabled>打断 AI，听对方说话</button></div>
       <p id="backend-error" class="backend-error" hidden></p>
@@ -222,25 +223,30 @@
       ? (s.audioValidationStoppedAt > 0 ? validationReason : '声音验证剩余约 ' + validationRemaining + ' 秒；到时主动停止音频')
       : s.audioValidationPrepared ? '声音已准备，等待手机开始呼叫后计时' : '');
     $('inspect-dialer').disabled = !operable || !idle(s) || dirty || !s.connected || held || lease;
+    $('answer-incoming').hidden = !s.incomingMode;
+    $('incoming-note').hidden = !s.incomingMode;
+    $('answer-incoming').disabled = !operable || !s.incomingAvailable || s.busy || !builtinReady || s.pluginPhase !== 'ready';
+    $('dial').hidden = !!s.incomingMode;
     $('dial').disabled = !operable || !idle(s) || dirty || !s.connected || !(api ? apiReady : builtinReady);
     $('hangup').disabled = !ready || pending.has('hangup') || !(activeCall(s) || s.busy || lease);
     setText('dial', s.callPending ? '电话正在呼叫' : '蓝牙拨号');
     setText('hangup', s.callActive || s.callPending ? '结束通话' : (s.busy || lease) ? '结束任务' : '结束通话');
-    setText('dial-hint', needsDisconnect ? '先断开手机，再保存新号码。' : dirty ? '先保存设置，再连接。' : api ? '会先检查语音服务，再通过蓝牙拨打已保存号码。' : builtinReady ? '通过蓝牙拨号和挂断；实际电话声音需独立验证。' : '准备音频并确认当前对话的语音已启动。');
+    setText('dial-hint', s.incomingMode ? (builtinReady ? '语音已确认，可以接听本任务选定的当前来电。' : '先准备连续音频，再确认当前 Codex 语音已启动。') : needsDisconnect ? '先断开手机，再保存新号码。' : dirty ? '先保存设置，再连接。' : api ? '会先检查语音服务，再通过蓝牙拨打已保存号码。' : builtinReady ? '通过蓝牙拨号和挂断；实际电话声音需独立验证。' : '准备音频并确认当前对话的语音已启动。');
     $('api-interrupt-row').hidden = !api || !s.voiceActive; $('interrupt').disabled = !operable || !s.voiceActive;
     const backendError = typeof s.error === 'string' ? s.error : ''; setText('backend-error',backendError); $('backend-error').hidden = !backendError;
     const needsSpeech = s.modeID === 'builtin_voice' && s.captionSource !== 'codex_transcript';
     renderPermission('microphone-permission',s.microphonePermission); renderPermission('speech-permission',needsSpeech ? s.speechPermission : 'notRequired');
     const granted = s.microphonePermission === 'authorized' && (!needsSpeech || s.speechPermission === 'authorized');
-    $('permissions').disabled = !operable || s.permissionRequestPending || !idle(s) || granted;
+    const receiveSetup = s.incomingMode && !s.callActive && !s.busy;
+    $('permissions').disabled = !operable || s.permissionRequestPending || !(idle(s) || receiveSetup) || granted;
     setText('permissions', s.permissionRequestPending ? '请查看系统授权窗口' : granted ? '权限已允许' : '允许麦克风与字幕');
-    $('prepare-builtin').disabled = !operable || !idle(s) || (!s.connected && !s.continuousVoiceInstalled) || !granted || held || dirty;
+    $('prepare-builtin').disabled = !operable || !(idle(s) || receiveSetup) || (!s.connected && !s.continuousVoiceInstalled) || !granted || held || dirty;
     badge('route-badge', held ? (s.builtinRouteReady ? 'ok' : 'warn') : '');
     setText('route-label',s.continuousVoiceActive ? (s.continuousVoiceReady ? '连续语音 · ' + (s.continuousVoiceTarget === 'phone' ? '电话中' : '本机交流') : '连续语音待检查') : held ? (s.builtinRouteReady ? '音频已准备' : '待恢复 / 检查') : '未准备');
-    $('voice-confirmation').disabled = !operable || !idle(s) || !held || !s.builtinRouteReady || !!s.builtinVoiceConfirmed;
+    $('voice-confirmation').disabled = !operable || !(idle(s) || receiveSetup) || !held || !s.builtinRouteReady || !!s.builtinVoiceConfirmed;
     if (s.builtinVoiceConfirmed) $('voice-confirmation').checked = true;
     else if (!held || !s.builtinRouteReady) $('voice-confirmation').checked = false;
-    $('confirm-builtin').disabled = !operable || !idle(s) || !held || !s.builtinRouteReady || !$('voice-confirmation').checked || !!s.builtinVoiceConfirmed;
+    $('confirm-builtin').disabled = !operable || !(idle(s) || receiveSetup) || !held || !s.builtinRouteReady || !$('voice-confirmation').checked || !!s.builtinVoiceConfirmed;
     setText('confirm-builtin',s.builtinVoiceConfirmed ? '语音已确认' : '确认语音已就绪');
     $('restore-area').hidden = !held;
     if (held !== previousRouteActive) { $('voice-stopped').checked = false; previousRouteActive = held; }
@@ -313,6 +319,7 @@
   $('dial').addEventListener('click',() => command('dial'));
   $('hangup').addEventListener('click',() => command('hangup'));
   $('interrupt').addEventListener('click',() => command('interrupt'));
+  $('answer-incoming').addEventListener('click',() => command('answer_incoming',{},'正在接听本任务选定的当前来电。'));
   $('permissions').addEventListener('click',() => command('request_permissions',{},'请完成 macOS 弹出的授权。'));
   $('prepare-builtin').addEventListener('click',() => command('prepare_builtin'));
   $('confirm-builtin').addEventListener('click',() => { if ($('voice-confirmation').checked) command('confirm_builtin',{confirmed:true}); });

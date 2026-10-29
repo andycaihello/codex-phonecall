@@ -2,6 +2,7 @@
 // Pure bounded HFP AT transaction/state machine. No Bluetooth or audio APIs.
 #include <algorithm>
 #include <deque>
+#include <cstdint>
 #include <map>
 #include <regex>
 #include <set>
@@ -31,7 +32,7 @@ inline bool allowedHelperExchange(bool hspLive, bool hfpLive, bool selectedHFPAn
     return (hspLive && !hfpLive) || (!hspLive && hfpLive && selectedHFPAnchorReady);
 }
 struct Event { std::string kind, id, detail; bool ok = false; };
-struct Job { std::string kind, id; double verifyUntil = 0; };
+struct Job { std::string kind, id; double verifyUntil = 0; uint64_t incomingToken = 0; };
 class HFP {
 public:
     explicit HFP(std::string number = "") : permittedNumber(validDialNumber(number) ? std::move(number) : "") {}
@@ -40,6 +41,15 @@ public:
         permittedNumber = number; return true;
     }
     bool ready = false, failed = false, ownDial = false, idleVerified = false, stopping = false;
+    // Opt-in receive-only mode. Default construction retains outbound behavior.
+    bool incomingOnly = false, ownIncoming = false;
+    uint64_t incomingToken = 0;
+    bool configureIncomingBeforeStart() {
+        if (stage != "disconnected" || ready || hasOwnedDialIntent() || hasPending()) return false;
+        incomingOnly = true; permittedNumber.clear(); return true;
+    }
+    bool incomingAvailable() const { return incomingOnly && ready && !failed && !ownsCall() && !answerQueued && call == 0 && setup == 1 && held == 0 && incomingToken != 0; }
+    bool ownsCall() const { return ownDial || ownIncoming; }
     int call = -1, setup = -1, held = -1;
     std::string stage = "disconnected";
     std::vector<Event> events;
@@ -47,7 +57,8 @@ public:
         reset(); connectID = id; stage = "slc"; queue.push_back({"brsf", id});
     }
     void reset() {
-        ready = failed = ownDial = idleVerified = stopping = false; call = setup = held = -1;
+        ready = failed = ownDial = ownIncoming = idleVerified = stopping = false; call = setup = held = -1;
+        incomingToken = ownedIncomingToken = 0; incomingRinging = answerQueued = false;
         stage = "disconnected"; queue.clear(); pending = {}; rx.clear(); names.clear(); values.clear();
         deadline = 0; lastSnapshot = -100; nextAt = 0; responseSeen = false; dialQueued = false; ring = false;
         callActivityObserved = preflightCancelled = cancelledIntentNeedsSnapshot = endedOwnedCall = ownershipContested = false; connectID.clear();
@@ -59,23 +70,27 @@ public:
         // Keep ownership/unknown call state visible; RFCOMM close does not hang up.
         idleVerified = false; events.push_back({"state", "", "control_disconnected; call_end_not_verified", false});
     }
-    bool enqueue(const std::string &op, const std::string &id, const std::string &number = "") {
+    bool enqueue(const std::string &op, const std::string &id, const std::string &number = "", uint64_t token = 0) {
         if (stopping && op != "hangup" && op != "refresh") { events.push_back({"result", id, "shutdown_in_progress", false}); return false; }
         if (!ready || failed) { events.push_back({"result", id, "hfp_slc_not_ready", false}); return false; }
         if (op != "hangup" && queue.size() >= 16) { events.push_back({"result", id, "queue_full", false}); return false; }
         if (op == "dial") {
+            if (incomingOnly) { events.push_back({"result", id, "incoming_only; dial_not_allowed", false}); return false; }
             if (!validDialNumber(number) || number != permittedNumber) { events.push_back({"result", id, "number_not_allowlisted", false}); return false; }
             if (ownDial || dialQueued || cancelledIntentNeedsSnapshot || preflightCancelled) { events.push_back({"result", id, "owned_dial_already_pending", false}); return false; }
             dialQueued = true; endedOwnedCall = cancelledIntentNeedsSnapshot = false; queue.push_back({"dial_preflight", id});
+        } else if (op == "answer") {
+            if (!incomingAvailable() || token != incomingToken) { events.push_back({"result", id, "incoming_call_changed; ATA_not_sent", false}); return false; }
+            answerQueued = true; queue.push_back({"answer_preflight", id, 0, token});
         } else if (op == "refresh") queue.push_back({"refresh", id});
         else if (op == "hangup") {
             // Cancellation is an operation on our queued intent, even before ATD sets ownDial.
-            bool cancelled = cancelledIntentNeedsSnapshot || dialQueued || pending.kind == "dial_preflight";
-            if (!ownDial && !cancelled && !endedOwnedCall) { events.push_back({"result", id, "no_owned_dial; no_hangup_sent", false}); return false; }
+            bool cancelled = cancelledIntentNeedsSnapshot || dialQueued || pending.kind == "dial_preflight" || answerQueued;
+            if (!ownsCall() && !cancelled && !endedOwnedCall) { events.push_back({"result", id, "no_owned_dial; no_hangup_sent", false}); return false; }
             for (const auto &j : queue) if (!j.id.empty()) events.push_back({"result", j.id, "cancelled_for_owned_hangup_before_write", false});
-            queue.clear(); dialQueued = false;
-            if (pending.kind == "dial_preflight") preflightCancelled = true; // Drain its reply; never reuse an OK.
-            if (cancelled && !ownDial) {
+            queue.clear(); dialQueued = answerQueued = false;
+            if (pending.kind == "dial_preflight" || pending.kind == "answer_preflight") preflightCancelled = true; // Drain its reply; never reuse an OK.
+            if (cancelled && !ownsCall()) {
                 cancelledIntentNeedsSnapshot = true; queue.push_front({"cancel_verify", id});
             } else queue.push_front({"hangup_preflight", id});
         } else { events.push_back({"result", id, "unknown_hfp_operation", false}); return false; }
@@ -85,6 +100,10 @@ public:
         checkTimeout(now);
         if (failed || !pending.kind.empty() || queue.empty() || !rx.empty() || now < nextAt) return "";
         pending = queue.front(); queue.pop_front(); responseSeen = false;
+        if (pending.kind == "answer" && !answerWriteAllowed(pending.incomingToken, now)) {
+            events.push_back({"result", pending.id, "incoming_call_changed_before_ATA; not_sent", false});
+            pending = {}; answerQueued = false; return "";
+        }
         if (pending.kind == "dial" && (!idle() || ring || stopping || now - lastSnapshot > 2)) {
             events.push_back({"result", pending.id, "call_changed_before_dial", false});
             pending = {}; dialQueued = false; return "";
@@ -102,6 +121,10 @@ public:
         else if (pending.kind == "dial") {
             wire = std::string("ATD") + permittedNumber + ";\r"; ownDial = true; idleVerified = false; callActivityObserved = false; endedOwnedCall = ownershipContested = false;
             responseSeen = true; dialQueued = false;
+        } else if (pending.kind == "answer") {
+            wire = "ATA\r"; ownIncoming = true; ownedIncomingToken = pending.incomingToken;
+            idleVerified = false; callActivityObserved = false; ownershipContested = endedOwnedCall = false;
+            responseSeen = true; answerQueued = false;
         } else if (pending.kind == "hangup") { wire = "AT+CHUP\r"; responseSeen = true; }
         else wire = "AT+CIND?\r";
         events.push_back({"at_command", pending.id, pending.kind == "dial" ? "ATD***" + permittedNumber.substr(permittedNumber.size() > 4 ? permittedNumber.size() - 4 : 0) + ";" : wire.substr(0, wire.size() - 1), true});
@@ -129,7 +152,7 @@ public:
         queue.clear(); pending = {}; events.push_back({"protocol_failed", "", reason, false});
     }
     bool idle() const { return call == 0 && setup == 0 && held == 0; }
-    bool hasOwnedDialIntent() const { return ownDial || dialQueued || preflightCancelled || cancelledIntentNeedsSnapshot; }
+    bool hasOwnedDialIntent() const { return ownsCall() || dialQueued || answerQueued || preflightCancelled || cancelledIntentNeedsSnapshot; }
     bool hasPending() const { return !pending.kind.empty() || !queue.empty(); }
     std::string pendingKind() const { return pending.kind; }
     size_t bufferedBytes() const { return rx.size(); }
@@ -151,18 +174,20 @@ public:
     bool firstWriteAllowed(double now) const {
         if (failed || pending.kind.empty() || now >= deadline) return false;
         if (pending.kind == "dial") return !stopping && idle() && !ring && !ownershipContested && now - lastSnapshot <= 2;
+        if (pending.kind == "answer") return answerWriteAllowed(pending.incomingToken, now, true);
         if (pending.kind == "hangup") return hangupWriteAllowed(now);
         return true;
     }
     void cancelUnwrittenControl() {
         if (pending.kind == "dial") { cancelUnwrittenDial(); return; }
+        if (pending.kind == "answer") { ownIncoming = false; ownedIncomingToken = 0; answerQueued = false; }
         if (!pending.kind.empty()) events.push_back({"result", pending.id, "call_ownership_changed_before_write; command_not_sent", false});
         pending = {};
     }
     void beginStop() {
         stopping = true;
         for (const auto &j : queue) if (!j.id.empty()) events.push_back({"result", j.id, "cancelled_for_shutdown_before_write", false});
-        queue.clear(); dialQueued = false;
+        queue.clear(); dialQueued = answerQueued = false;
     }
     bool awaitingBytes() const { return !pending.kind.empty(); }
     size_t queued() const { return queue.size(); }
@@ -175,11 +200,35 @@ private:
     double deadline = 0, lastSnapshot = -100, nextAt = 0;
     bool responseSeen = false, dialQueued = false, ring = false, callActivityObserved = false;
     bool preflightCancelled = false, cancelledIntentNeedsSnapshot = false, endedOwnedCall = false, ownershipContested = false;
+    uint64_t incomingSerial = 0, ownedIncomingToken = 0;
+    bool incomingRinging = false, answerQueued = false;
+    bool answerWriteAllowed(uint64_t token, double now, bool claimed = false) const {
+        return incomingOnly && !stopping && !failed && !ownershipContested && token != 0 && token == incomingToken &&
+            !ownDial && (!ownIncoming || (claimed && ownedIncomingToken == token)) &&
+            call == 0 && setup == 1 && held == 0 && now - lastSnapshot <= 2;
+    }
     bool hangupWriteAllowed(double now) const {
+        if (ownIncoming) return !ownershipContested && held == 0 && !idle() && now - lastSnapshot <= 2 &&
+            ((call == 1 && setup == 0 && callActivityObserved) ||
+             (call == 0 && setup == 1 && incomingToken == ownedIncomingToken));
         return ownDial && callActivityObserved && !ownershipContested && !ring && setup != 1 && held == 0 &&
             !idle() && now - lastSnapshot <= 2;
     }
     void observeCallState(bool fullSnapshot, bool callIndicator) {
+        if (incomingOnly) {
+            const bool ringingNow = call == 0 && setup == 1 && held == 0;
+            if (ringingNow && !incomingRinging) incomingToken = ++incomingSerial;
+            incomingRinging = ringingNow;
+            if (!ringingNow) incomingToken = 0;
+            if (ownIncoming && (held > 0 || setup == 2 || setup == 3 ||
+                (ringingNow && incomingToken != ownedIncomingToken) || (call == 1 && setup == 1 && callActivityObserved))) ownershipContested = true;
+            if (ownIncoming && call == 1 && setup == 0 && held == 0) callActivityObserved = true;
+            if (ownIncoming && idle() && (fullSnapshot || callIndicator)) {
+                ownIncoming = false; ownedIncomingToken = 0; endedOwnedCall = true;
+                callActivityObserved = false; ownershipContested = false;
+                events.push_back({"owned_call_ended", "", "answered_call_returned_idle", true});
+            }
+        }
         if (ownDial && (ring || setup == 1)) ownershipContested = true;
         if (ownDial && !ownershipContested && (setup == 2 || setup == 3 || call == 1)) callActivityObserved = true;
         // A battery/signal CIEV cannot finish a dial whose call lifecycle has not been observed.
@@ -187,7 +236,7 @@ private:
             ownDial = false; endedOwnedCall = true; ownershipContested = false;
             events.push_back({"owned_call_ended", "", "observed_owned_lifecycle_returned_idle", true});
         }
-        idleVerified = idle() && !ring && !ownDial;
+        idleVerified = idle() && !ring && !ownsCall();
     }
     static bool match(const std::string &line, const char *pattern) { return std::regex_match(line, std::regex(pattern)); }
     bool apply(const std::string &name, int value) {
@@ -218,7 +267,7 @@ private:
         events.push_back({"call_state", "", "CIND_snapshot", true}); return true;
     }
     void process(const std::string &line, double now) {
-        if (line == "RING") { ring = true; if (ownDial) ownershipContested = true; idleVerified = false; events.push_back({"ring", "", "incoming_call_indication", true}); return; }
+        if (line == "RING") { ring = true; if (ownDial || (ownIncoming && call == 1)) ownershipContested = true; idleVerified = false; events.push_back({"ring", "", "incoming_call_indication", true}); return; }
         std::smatch m;
         if (std::regex_match(line, m, std::regex(R"(^\+CIEV:\s*([0-9]{1,2})\s*,\s*([0-9]{1,3})$)"))) {
             int index = std::stoi(m[1]), value = std::stoi(m[2]);
@@ -237,22 +286,23 @@ private:
         if (line == "ERROR" || line.rfind("+CME ERROR:", 0) == 0 || line == "NO CARRIER" || line == "BUSY" || line == "NO ANSWER") {
             if (!ready) { fail("AG_rejected_SLC"); return; }
             events.push_back({"result", pending.id, "AG_rejected_command; call_state_requires_refresh", false});
-            if (pending.kind == "dial_preflight") preflightCancelled = false;
-            pending = {}; dialQueued = false; nextAt = now + .02; return;
+            if (pending.kind == "dial_preflight" || pending.kind == "answer_preflight") preflightCancelled = false;
+            if (pending.kind == "answer" && call == 0) { ownIncoming = false; ownedIncomingToken = 0; }
+            pending = {}; dialQueued = answerQueued = false; nextAt = now + .02; return;
         }
         if (pending.kind == "brsf" && match(line, R"(^\+BRSF:\s*[0-9]{1,10}$)")) responseSeen = true;
         else if (pending.kind == "cind_defs" && line.rfind("+CIND:", 0) == 0) {
             if (!definitions(line)) { fail("invalid_CIND_definitions"); return; } responseSeen = true;
-        } else if (line.rfind("+CIND:", 0) == 0 && (pending.kind == "cind_initial" || pending.kind == "refresh" || pending.kind == "dial_preflight" || pending.kind == "hangup_preflight" || pending.kind == "cancel_verify" || pending.kind == "hangup_verify")) {
+        } else if (line.rfind("+CIND:", 0) == 0 && (pending.kind == "cind_initial" || pending.kind == "refresh" || pending.kind == "dial_preflight" || pending.kind == "answer_preflight" || pending.kind == "hangup_preflight" || pending.kind == "cancel_verify" || pending.kind == "hangup_verify")) {
             if (!snapshot(line, now)) { fail("invalid_CIND_snapshot"); return; } responseSeen = true;
         } else if (line == "OK") {
             if (!responseSeen) { fail("OK_before_required_data"); return; }
             Job done = pending; pending = {}; nextAt = now + .02;
-            if (done.kind == "dial_preflight" && preflightCancelled) {
-                preflightCancelled = false; dialQueued = false;
+            if ((done.kind == "dial_preflight" || done.kind == "answer_preflight") && preflightCancelled) {
+                preflightCancelled = false; dialQueued = answerQueued = false;
                 events.push_back({"result", done.id, "dial_intent_cancelled; ATD_not_sent", false}); return;
             }
-            if (stopping && (done.kind == "dial_preflight" || done.kind == "brsf" || done.kind == "cind_defs" || done.kind == "cind_initial" || done.kind == "cmer")) {
+            if (stopping && (done.kind == "dial_preflight" || done.kind == "answer_preflight" || done.kind == "brsf" || done.kind == "cind_defs" || done.kind == "cind_initial" || done.kind == "cmer")) {
                 events.push_back({"result", done.id, "cancelled_for_shutdown; no_followup_command", false}); return;
             }
             if (done.kind == "brsf") queue.push_front({"cind_defs", done.id});
@@ -262,19 +312,23 @@ private:
             else if (done.kind == "dial_preflight") {
                 if (!idle() || ring) { dialQueued = false; events.push_back({"result", done.id, "phone_not_idle; dial_not_sent", false}); }
                 else queue.push_front({"dial", done.id});
+            } else if (done.kind == "answer_preflight") {
+                if (answerWriteAllowed(done.incomingToken, now)) queue.push_front({"answer", done.id, 0, done.incomingToken});
+                else { answerQueued = false; events.push_back({"result", done.id, "incoming_call_changed; ATA_not_sent", false}); }
             } else if (done.kind == "cancel_verify") {
                 cancelledIntentNeedsSnapshot = false;
                 events.push_back({"result", done.id, idleVerified ? "dial_intent_cancelled; fresh_idle_verified; CHUP_not_sent" : "dial_intent_cancelled; phone_not_idle; no_owned_call; CHUP_not_sent", idleVerified});
             } else if (done.kind == "hangup_preflight") {
-                if (!ownDial && idleVerified) events.push_back({"result", done.id, "owned_call_already_ended; fresh_idle_verified; CHUP_not_sent", true});
-                else if (ring || setup == 1 || ownershipContested || !ownDial) events.push_back({"result", done.id, "incoming_or_unowned_call; CHUP_not_sent", false});
+                if (!ownsCall() && idleVerified) events.push_back({"result", done.id, "owned_call_already_ended; fresh_idle_verified; CHUP_not_sent", true});
+                else if ((!ownIncoming && (ring || setup == 1)) || ownershipContested || !ownsCall()) events.push_back({"result", done.id, "incoming_or_unowned_call; CHUP_not_sent", false});
                 else if (hangupWriteAllowed(now)) queue.push_front({"hangup", done.id});
                 else if (now < done.verifyUntil) { queue.push_front(done); nextAt = now + .25; }
                 else events.push_back({"result", done.id, "owned_dial_lifecycle_unverified; CHUP_not_sent", false});
             } else if (done.kind == "dial") events.push_back({"result", done.id, "dial_accepted; active_call_not_yet_verified", true});
+            else if (done.kind == "answer") events.push_back({"result", done.id, "answer_accepted; active_call_not_yet_verified", true});
             else if (done.kind == "hangup") { queue.push_front({"hangup_verify", done.id, now + 5}); nextAt = now + .2; }
             else if (done.kind == "hangup_verify") {
-                if (idleVerified) { ownDial = false; events.push_back({"result", done.id, "owned_call_ended_verified", true}); }
+                if (idleVerified) { ownDial = ownIncoming = false; events.push_back({"result", done.id, "owned_call_ended_verified", true}); }
                 else if (now < done.verifyUntil) { queue.push_front(done); nextAt = now + .25; }
                 else events.push_back({"result", done.id, "CHUP_accepted_but_call_end_unverified", false});
             } else if (done.kind == "refresh") {

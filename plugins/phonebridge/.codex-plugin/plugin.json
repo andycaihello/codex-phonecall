@@ -1,6 +1,6 @@
 {
   "name": "phonebridge",
-  "version": "0.7.8",
+  "version": "0.7.9",
   "description": "通过本机蓝牙通话桥发起电话、持续读取字幕，并在当前 Codex 对话协作。",
   "author": {
     "name": "Andy"

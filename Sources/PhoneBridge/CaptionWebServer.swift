@@ -205,7 +205,7 @@ final class CaptionWebServer: ObservableObject {
            value.doubleValue.isFinite, value.doubleValue == Double(value.intValue), (0...Int(Int32.max)).contains(value.intValue) {
             result["maximumSeconds"] = value.intValue
         }
-        for key in ["bluetoothCallControlReady", "audioValidationPrepared", "audioValidationReady", "validationPromptSent", "connected", "busy", "phoneStateUnknown", "callActive", "callPending", "voiceActive", "voiceServiceChecking",
+        for key in ["incomingMode", "incomingAvailable", "bluetoothCallControlReady", "audioValidationPrepared", "audioValidationReady", "validationPromptSent", "connected", "busy", "phoneStateUnknown", "callActive", "callPending", "voiceActive", "voiceServiceChecking",
                     "cloudConsent", "keyConfigured", "pluginSessionActive", "builtinVoiceConfirmed",
                     "builtinRouteActive", "builtinRouteReady", "permissionRequestPending", "phoneConfigured", "phoneSelectionPending",
                     "pairingModeActive", "pairingRoleMatches", "continuousVoiceInstalled", "continuousVoiceActive", "continuousVoiceReady"] {

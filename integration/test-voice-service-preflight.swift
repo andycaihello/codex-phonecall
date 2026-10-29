@@ -33,6 +33,7 @@ enum VoiceAPIKeychain {
     var onEvent: (([String: Any]) -> Void)?, onExit: ((Int32) -> Void)?
     var cleanupVerified = true, resourcesReleased = true, isRunning = false
     var diagnosticEvents: [[String: Any]] = [], cleanupSnapshot: [String: Any] = [:]
+    func launchIncoming(_ url: URL, phone: PhonePeerConfiguration) throws { FakeCounts.bluetooth += 1 }
     func launch(_ url: URL, allowedNumber: String, phone: PhonePeerConfiguration) throws { FakeCounts.bluetooth += 1 }
     func request(_ op: String, fields: [String: Any] = [:], timeout: TimeInterval = 12) async throws -> [String: Any] { FakeCounts.bluetooth += 1; return [:] }
     func shutdown() { FakeCounts.bluetooth += 1 }

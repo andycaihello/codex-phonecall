@@ -75,6 +75,19 @@ class ToolTests(unittest.TestCase):
             with self.subTest(number=number), self.assertRaises(server.InvalidParams):
                 server.validate_tool("phonebridge_prepare_call", {"number": number, "task": "test"})
 
+    def test_incoming_receive_only_contract(self):
+        args = server.validate_tool("phonebridge_prepare_incoming", {"task": "代接当前来电", "codex_thread_id": SID})
+        self.assertEqual(args["max_seconds"], 0)
+        self.assertNotIn("number", args)
+        self.assertNotIn("mode", args)
+        for extra in ({"number": "5551234"}, {"mode": "openai_realtime"}, {"max_seconds": True}, {"codex_thread_id": "../other"}):
+            with self.assertRaises(server.InvalidParams):
+                server.validate_tool("phonebridge_prepare_incoming", {"task": "current call", **extra})
+        self.assertEqual(server.validate_tool("phonebridge_answer_call", {"session_id": SID}), {"session_id": SID})
+        for extra in ({"number": "5551234"}, {"incoming_id": "1"}):
+            with self.assertRaises(server.InvalidParams):
+                server.validate_tool("phonebridge_answer_call", {"session_id": SID, **extra})
+
     def test_strict_bounded_fields(self):
         bad = [
             ("phonebridge_prepare_call", {"number": "10010", "task": "x", "codex_thread_id": "../another"}),
@@ -113,6 +126,8 @@ class ToolTests(unittest.TestCase):
             arguments = {"session_id": SID}
             if name in ("phonebridge_status", "phonebridge_open_console"):
                 arguments = {}
+            elif name == "phonebridge_prepare_incoming":
+                arguments = {"task": "owner authorized current incoming call"}
             elif name == "phonebridge_prepare_call":
                 arguments = {"number": "10010", "task": "test"}
             elif name == "phonebridge_steer_call":
@@ -153,7 +168,7 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(len(backend.calls), count)
 
     def test_annotations_and_user_attestation(self):
-        self.assertEqual(len(server.TOOLS), 11)
+        self.assertEqual(len(server.TOOLS), 13)
         self.assertTrue(server.BY_NAME["phonebridge_read_call"]["annotations"]["readOnlyHint"])
         self.assertTrue(server.BY_NAME["phonebridge_start_call"]["annotations"]["openWorldHint"])
         self.assertIn("spoken greeting", server.BY_NAME["phonebridge_start_call"]["description"])
@@ -258,7 +273,7 @@ class ProtocolTests(unittest.TestCase):
         self.init(); self.request(1, "tools/list"); self.request(2, "ping"); self.request(3, "execute_shell")
         rows = self.out.rows()
         self.assertEqual(rows[1]["result"]["protocolVersion"], "2025-06-18")
-        self.assertEqual(len(rows[2]["result"]["tools"]), 11)
+        self.assertEqual(len(rows[2]["result"]["tools"]), 13)
         self.assertEqual(rows[3]["result"], {})
         self.assertEqual(rows[4]["error"]["code"], -32601)
         self.assertEqual(self.backend.calls, [])

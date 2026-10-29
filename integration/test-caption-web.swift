@@ -15,6 +15,9 @@ import Darwin
         throw NSError(domain: "stub readiness timeout", code: 1)
     }
     static func main() async throws {
+        let incomingProjection = CaptionWebServer.safeSnapshot(["incomingMode":true,"incomingAvailable":true,"incomingID":"private-ring-token"])
+        try check(incomingProjection["incomingMode"] as? Bool == true && incomingProjection["incomingAvailable"] as? Bool == true && incomingProjection["incomingID"] == nil,
+                  "incoming controls expose readiness but not the private ring token")
         try check(route(request()) == .state, "exact GET state accepted")
         try check(route(request("/secret/")) == .page, "exact page accepted")
         try check(route(request(method: "POST")) == .methodNotAllowed, "POST to read-only route rejected")
@@ -60,11 +63,12 @@ import Darwin
             "microphonePermission":"authorized", "speechPermission":"authorized", "permissionRequestPending":false,
             "busy":false, "diagnosticSummary":"离线摘要", "apiKey":"synthetic-secret", "bluetoothEvents":["synthetic-secret"],
             "phoneConfigured":true, "phoneName":"离线设备", "phoneAddress":"00:11:22:33:44:55", "phoneSelectionPending":false,
+            "incomingMode":true, "incomingAvailable":true, "incomingID":"private-ring-token",
             "pairedPhones":[["address":"00:11:22:33:44:55", "name":"离线设备", "privateField":"synthetic-secret"]],
             "transcript":[["id":"local-1", "role":"对方", "text":"离线文字", "final":false]]]
         let consoleState = CaptionWebServer.safeSnapshot(console)
-        try check(console.keys.filter { !["apiKey", "bluetoothEvents"].contains($0) }.allSatisfy { consoleState[$0] != nil }
-                  && consoleState["backendRunning"] as? Bool == true && consoleState["apiKey"] == nil && consoleState["bluetoothEvents"] == nil,
+        try check(console.keys.filter { !["apiKey", "bluetoothEvents", "incomingID"].contains($0) }.allSatisfy { consoleState[$0] != nil }
+                  && consoleState["backendRunning"] as? Bool == true && consoleState["apiKey"] == nil && consoleState["bluetoothEvents"] == nil && consoleState["incomingID"] == nil,
                   "console contract survives whitelist without keys or native events")
         try check((consoleState["transcript"] as? [[String:Any]])?.first?["id"] as? String == "local-1",
                   "console transcript identity retained for partial replacement")

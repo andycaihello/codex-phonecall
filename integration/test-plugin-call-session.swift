@@ -24,6 +24,12 @@ struct ConversationLine: Identifiable {
     var bluetoothCallControlReady: Bool { connected && connectedForCurrentNumber }
     var callActive = false, callPending = false, voiceActive = false
     var ownsActiveCall = false
+    var incomingMode = false
+    var incomingSelectionID: String?
+    func beginIncomingSelection() { incomingSelectionID = incomingMode ? incomingCallID : nil }
+    var incomingCallID: String?
+    var answers = 0
+    func answerIncoming(id: String) throws { answers += 1; ownsActiveCall = true; callActive = true; callPending = false; voiceActive = true; incomingCallID = nil }
     var mode: ConversationMode = .builtinVoice
     var phone: PhonePeerConfiguration?
     var number = "", instructions = "", status = "fixture", error = ""
@@ -239,6 +245,43 @@ private struct PluginChecks {
             let historical = try another.read(id: id, after: 0)
             check(historical["terminal"] as? Bool == true && historical["phase"] as? String == "interrupted_unknown_phone_state",
                   "nonterminal disk snapshot is not treated as a still-live call")
+        }
+        do {
+            let (s, p, _) = fixture("incoming-success")
+            s.incomingMode = true; s.incomingCallID = "42"; s.callPending = true
+            let value = try p.prepareIncoming(task: "代接当前来电", maximumSeconds: 0, codexThreadID: nil)
+            let id = value["session_id"] as! String
+            check(s.number.isEmpty && s.incomingMode && s.maximumSeconds == 0, "incoming preparation has no outgoing destination or fixed duration")
+            check(s.answers == 0 && s.dials == 0, "incoming preparation never answers or dials")
+            check(fails { _ = try p.start(id: id) }, "outgoing start is rejected on incoming lease")
+            _ = try p.prepareBuiltin(id: id); await pump()
+            check(p.phase == "awaiting_user_voice_start", "ringing call permits audio setup")
+            check(fails { _ = try p.answer(id: id) } && s.answers == 0, "no answering before owner voice confirmation")
+            _ = try p.confirmBuiltin(id: id)
+            check(fails { _ = try p.answer(id: UUID().uuidString.lowercased()) }, "different chat lease cannot answer")
+            _ = try p.answer(id: id); _ = try p.answer(id: id)
+            check(s.answers == 1 && s.dials == 0, "incoming answer is idempotent and never dials")
+            _ = try p.read(id: id, after: 0); check(p.phase == "in_call", "owned answered call becomes in_call")
+            _ = try p.end(id: id); let ended = try p.read(id: id, after: 0)
+            check(s.hangups == 1 && ended["terminal"] as? Bool == true, "answered call uses existing end lifecycle")
+        }
+        do {
+            let (s, p, _) = fixture("incoming-replaced")
+            s.incomingMode = true; s.incomingCallID = "41"
+            let id = try p.prepareIncoming(task: "current caller only", maximumSeconds: 0, codexThreadID: nil)["session_id"] as! String
+            _ = try p.prepareBuiltin(id: id); await pump(); _ = try p.confirmBuiltin(id: id)
+            s.incomingCallID = "42"
+            check(fails { _ = try p.answer(id: id) } && s.answers == 0, "replacement caller cannot inherit original authorization")
+        }
+        do {
+            let (s, p, _) = fixture("incoming-no-caller")
+            let id = try p.prepareIncoming(task: "current caller only", maximumSeconds: 0, codexThreadID: nil)["session_id"] as! String
+            _ = try p.prepareBuiltin(id: id); await pump(); _ = try p.read(id: id, after: 0)
+            check(s.answers == 0 && s.dials == 0 && !s.error.isEmpty, "missing caller stops setup without a call")
+        }
+        do {
+            let (_, p, _) = fixture("outgoing-answer-rejected"); let id = try prepare(p)
+            check(fails { _ = try p.answer(id: id) }, "answer tool cannot operate on outgoing lease")
         }
         let failed = checks.filter { $0["passed"] as? Bool != true }
         let report: [String: Any] = ["passed": checks.count - failed.count, "failed": failed.count,
