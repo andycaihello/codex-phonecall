@@ -56,7 +56,12 @@ int main() {
       assert(h.takeWire(1) == "AT+CIND?\r"); snapshot(h, "0,1,0", 1.01);
       assert(h.takeWire(1.04).empty() && !h.ownsCall()); checks += 2; }
     { HFP h; connect(h); h.beginStop(); assert(!h.enqueue("answer", "stopped", "", h.incomingToken)); checks++; }
-    { HFP h("5551234"); assert(!h.enqueue("answer", "outgoing", "", 1)); checks++; }
+    { HFP h("5551234"); connect(h); auto token = h.incomingToken;
+      assert(h.incomingAvailable() && token != 0);
+      assert(!h.enqueue("answer", "stale-outgoing", "", token + 1));
+      assert(h.enqueue("answer", "outgoing-scope-incoming", "", token));
+      assert(h.takeWire(1) == "AT+CIND?\r"); snapshot(h, "0,1,0", 1.01);
+      assert(h.takeWire(1.04) == "ATA\r"); checks += 4; }
     // Repeated status snapshots retain the same ring token; reconnects do not reuse it.
     { HFP h; connect(h); auto token = h.incomingToken;
       for (int i=1;i<=50;++i) { assert(h.enqueue("refresh", "r")); assert(h.takeWire(i) == "AT+CIND?\r"); snapshot(h,"0,1,0",i+.01); assert(h.incomingToken == token); }

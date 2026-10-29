@@ -37,14 +37,13 @@ static NSString *validateRequest(id object) {
     if (!matches(r[@"id"], @"^[A-Za-z0-9_-]{1,64}$")) return @"invalid_id";
     if ([r[@"id"] hasPrefix:@"cleanup-"]) return @"reserved_id_prefix";
     NSString *op = r[@"op"];
-    NSArray *ops = @[@"helper_connect", @"helper_status", @"helper_exchange", @"helper_audio", @"helper_dial_ui", @"helper_stop", @"open_hsp", @"hsp_audio", @"close_hsp",
+    NSArray *ops = @[@"helper_connect", @"helper_status", @"helper_start_session", @"helper_exchange", @"helper_audio", @"helper_dial_ui", @"helper_stop", @"open_hsp", @"hsp_audio", @"close_hsp",
         @"connect", @"connect_hfp_anchor", @"status", @"refresh", @"dial", @"answer", @"hangup", @"disconnect", @"stop"];
     if (![op isKindOfClass:NSString.class] || ![ops containsObject:op]) return @"invalid_operation";
     NSSet *keys = [NSSet setWithArray:r.allKeys];
     BOOL numberedOperation = [op isEqualToString:@"dial"] || [op isEqualToString:@"helper_dial_ui"];
     BOOL answering = [op isEqualToString:@"answer"];
     if (incomingOnly && numberedOperation) return @"incoming_only; dial_not_allowed";
-    if (answering && !incomingOnly) return @"answer_requires_incoming_mode";
     if (answering && !matches(r[@"incoming_id"], @"^[1-9][0-9]{0,14}$")) return @"invalid_incoming_id";
     NSSet *expected = [NSSet setWithArray:numberedOperation ? @[@"id", @"op", @"number"] : answering ? @[@"id", @"op", @"incoming_id"] : @[@"id", @"op"]];
     if (![keys isEqualToSet:expected]) return @"unexpected_or_missing_fields";
@@ -478,7 +477,7 @@ static NSDictionary *uintElement(int n, int bytes) { return @{@"DataElementType"
     if (r[@"dialerStage"] && (![@[@"idle", @"requested", @"submitted", @"failed", @"cancelled"] containsObject:r[@"dialerStage"]])) shape = NO;
     for (NSString *k in @[@"dialerError", @"dialerRequestId"])
         if (r[k] && (![r[k] isKindOfClass:NSString.class] || [r[k] length] > 160)) shape = NO;
-    for (NSString *k in @[@"backgroundActive", @"foreground"])
+    for (NSString *k in @[@"backgroundActive", @"foreground", @"standby"])
         if (r[k] && (![r[k] isKindOfClass:NSNumber.class] || CFGetTypeID((__bridge CFTypeRef)r[k]) != CFBooleanGetTypeID())) shape = NO;
     if (!shape) {
         [self result:self.helperPending[@"id"] ok:NO detail:@"helper_response_shape_rejected"]; self.helperPending = nil; return;
@@ -496,7 +495,7 @@ static NSDictionary *uintElement(int n, int bytes) { return @{@"DataElementType"
     self.helperCallState = [r[@"callState"] integerValue];
     self.helperStateKnown = YES; self.helperCleanupSucceeded = [r[@"cleanupSucceeded"] boolValue]; self.helperPendingConnect = [r[@"pendingConnect"] boolValue];
     NSMutableDictionary *safe = [NSMutableDictionary dictionary];
-    for (NSString *k in @[@"id", @"ok", @"protocol", @"state", @"active", @"peerVerified", @"slcControlComplete", @"hfStage", @"remainingSeconds", @"cleanupSucceeded", @"pendingConnect", @"routeRequested", @"routeActive", @"routeError", @"callState", @"error", @"backgroundActive", @"foreground", @"dialerStage", @"dialerError", @"dialerRequestId"]) {
+    for (NSString *k in @[@"id", @"ok", @"protocol", @"state", @"active", @"peerVerified", @"slcControlComplete", @"hfStage", @"remainingSeconds", @"cleanupSucceeded", @"pendingConnect", @"routeRequested", @"routeActive", @"routeError", @"callState", @"error", @"backgroundActive", @"foreground", @"standby", @"dialerStage", @"dialerError", @"dialerRequestId"]) {
         id v = r[k]; if ([v isKindOfClass:NSNumber.class] || ([v isKindOfClass:NSString.class] && [v length] <= 160)) safe[k] = v;
     }
     NSString *detail = [r[@"ok"] boolValue] ? @"helper_response" :
@@ -600,13 +599,23 @@ static NSDictionary *uintElement(int n, int bytes) { return @{@"DataElementType"
         self.hspAudioPending = nil;
         [self beginShutdown:@"HSP_audio_command_timeout" requestID:nil];
     }
-    if (self.helperPending && t >= self.helperDeadline) { [self result:self.helperPending[@"id"] ok:NO detail:@"helper_command_timeout"]; self.helperPending = nil; }
+    if (self.helperPending && t >= self.helperDeadline) {
+        NSString *operation = self.helperPending[@"op"] ?: @"unknown";
+        emit(@{@"event": @"helper_timeout", @"op": operation, @"state": self.state});
+        [self result:self.helperPending[@"id"] ok:NO detail:[@"helper_command_timeout:" stringByAppendingString:operation]];
+        self.helperPending = nil;
+    }
     BTSlot *helper = [self live:@"helper"];
     if (helper && !self.helperPending && self.helperQueue.count && !helper.tx.length) {
         self.helperPending = self.helperQueue.firstObject; [self.helperQueue removeObjectAtIndex:0];
         NSData *d = [NSJSONSerialization dataWithJSONObject:self.helperPending options:NSJSONWritingSortedKeys error:nil];
         helper.txStarted = NO; [helper.tx appendData:d]; [helper.tx appendBytes:"\n" length:1];
-        self.helperDeadline = t + ([self.helperPending[@"op"] isEqualToString:@"audio"] ? 8 : 4);
+        NSString *operation = self.helperPending[@"op"];
+        // The phone may need to wake its foreground/background service before
+        // the first connect reply. Keep status checks bounded and responsive.
+        double timeout = [operation isEqualToString:@"connect"] ? 12 :
+            ([operation isEqualToString:@"audio"] ? 8 : 5);
+        self.helperDeadline = t + timeout;
     }
     if (!self.shutdown) return;
     if (!self.cleanupHelperQueued && (!hfp.ownsCall() || t - self.shutdownAt >= 6)) {

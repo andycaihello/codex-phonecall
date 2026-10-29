@@ -190,7 +190,7 @@ final class CaptionWebServer: ObservableObject {
             if let value = source[key] as? String { result[key] = String(value.prefix(limit)) }
         }
         for key in ["status", "error", "captionWarning", "mode", "voiceServiceStatus", "captionSource"] { copyText(key, limit: 1024) }
-        for key in ["version", "modeID", "number", "voice", "pluginPhase", "dialerStage", "dialTransport", "microphonePermission", "speechPermission", "phoneName", "phoneAddress", "continuousVoiceTarget"] { copyText(key, limit: 128) }
+        for key in ["managedMicrophonePermission", "version", "modeID", "number", "voice", "pluginPhase", "dialerStage", "dialTransport", "microphonePermission", "speechPermission", "phoneName", "phoneAddress", "continuousVoiceTarget"] { copyText(key, limit: 128) }
         copyText("instructions", limit: 12_000)
         copyText("diagnosticSummary", limit: 4096)
         copyText("audioValidationStopReason", limit: 64)
@@ -206,10 +206,34 @@ final class CaptionWebServer: ObservableObject {
             result["maximumSeconds"] = value.intValue
         }
         for key in ["incomingMode", "incomingAvailable", "bluetoothCallControlReady", "audioValidationPrepared", "audioValidationReady", "validationPromptSent", "connected", "busy", "phoneStateUnknown", "callActive", "callPending", "voiceActive", "voiceServiceChecking",
-                    "cloudConsent", "keyConfigured", "pluginSessionActive", "builtinVoiceConfirmed",
+                    "cloudConsent", "keyConfigured", "pluginSessionActive", "manualAnswerQueued", "builtinVoiceConfirmed",
                     "builtinRouteActive", "builtinRouteReady", "permissionRequestPending", "phoneConfigured", "phoneSelectionPending",
                     "pairingModeActive", "pairingRoleMatches", "continuousVoiceInstalled", "continuousVoiceActive", "continuousVoiceReady"] {
             if let value = source[key] as? NSNumber, CFGetTypeID(value) == CFBooleanGetTypeID() { result[key] = value.boolValue }
+        }
+        for key in ["managedVoice", "autoAnswer"] {
+            guard let object = source[key] as? [String: Any] else { continue }
+            var projected: [String: Any] = [:]
+            for field in ["installed", "running", "ready", "cleanupVerified", "enabled"] {
+                if let v = object[field] as? NSNumber, CFGetTypeID(v) == CFBooleanGetTypeID() { projected[field] = v.boolValue }
+            }
+            for field in ["error", "status", "task", "scope", "restartBehavior", "protocol", "transport", "context"] {
+                if let v = object[field] as? String { projected[field] = String(v.prefix(field == "task" ? 6000 : 1024)) }
+            }
+            if let v = object["delaySeconds"] as? NSNumber, CFGetTypeID(v) != CFBooleanGetTypeID(),
+               v.doubleValue == Double(v.intValue), (0...30).contains(v.intValue) { projected["delaySeconds"] = v.intValue }
+            if key == "managedVoice", let health = object["health"] as? [String: Any] {
+                var counts: [String: Any] = [:]
+                for field in ["inputPCMBytes", "sentAudioFrames", "outputPCMBytes", "userFinals", "assistantFinals", "queueBytes"] {
+                    if let v = health[field] as? NSNumber, v.int64Value >= 0 { counts[field] = v.int64Value }
+                }
+                if let v = health["inputAgeSeconds"] as? NSNumber, v.doubleValue.isFinite { counts["inputAgeSeconds"] = v.doubleValue }
+                for field in ["problem", "connectionState"] {
+                    if let v = health[field] as? String { counts[field] = String(v.prefix(64)) }
+                }
+                projected["health"] = counts
+            }
+            result[key] = projected
         }
         if let phones = source["pairedPhones"] as? [[String: Any]] {
             result["pairedPhones"] = phones.prefix(64).compactMap { phone -> [String: String]? in
@@ -235,6 +259,14 @@ final class CaptionWebServer: ObservableObject {
             var result: [String: Any] = ["role": String(role.prefix(40)), "text": String(text.prefix(8192)), "final": isFinal]
             if let id = line["id"] as? String { result["id"] = String(id.prefix(256)) }
             return result
+        }
+        // The console receives only short, redacted lifecycle messages. Do
+        // not expose native diagnostic dictionaries or arbitrary event data.
+        let entries = (source["consoleEvents"] as? [String] ?? []).suffix(50)
+        result["consoleEvents"] = entries.map { entry in
+            String(entry.prefix(512))
+                .replacingOccurrences(of: "(?<![0-9])[0-9]{11,15}(?![0-9])", with: "[号码]", options: .regularExpression)
+                .replacingOccurrences(of: "(?i)(?:[0-9a-f]{2}:){5}[0-9a-f]{2}", with: "[设备]", options: .regularExpression)
         }
         return result
     }

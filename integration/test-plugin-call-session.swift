@@ -18,12 +18,30 @@ struct ConversationLine: Identifiable {
     var diagnosticSnapshot: [String: Any] { ["fake": true] }
     var snapshot: [String: Any] { ["fake": true] }
 }
+@MainActor final class FakeManagedVoice {
+    var isReady=false, isRunning=false, cleanupVerified=true
+    var snapshot: [String:Any] { ["ready":isReady,"running":isRunning] }
+    var health: [String:Any] { ["problem":"", "connectionState": isRunning ? "connected" : "closed"] }
+}
+@MainActor final class FakeManagedMicrophone {
+    var status = "authorized"
+}
 /// Deliberately contains no real Bluetooth, CoreAudio, Keychain, Speech or API class.
 @MainActor final class CallSessionCoordinator {
     var connected = true, connectedForCurrentNumber = true, busy = false
     var bluetoothCallControlReady: Bool { connected && connectedForCurrentNumber }
     var callActive = false, callPending = false, voiceActive = false
-    var ownsActiveCall = false
+    var ownsActiveCall = false, phoneStateUnknown = false
+    let managedVoice = FakeManagedVoice()
+    let managedMicrophone = FakeManagedMicrophone()
+    var failManagedPrepare=false
+    var managedVoiceDelayNanoseconds: UInt64 = 0
+    func stopManagedVoice() { managedVoice.isReady=false;managedVoice.isRunning=false }
+    func prepareManagedVoice() async throws {
+        if failManagedPrepare { throw BridgeError("synthetic managed voice failure") }
+        if managedVoiceDelayNanoseconds > 0 { try await Task.sleep(nanoseconds: managedVoiceDelayNanoseconds) }
+        managedVoice.isReady=true;managedVoice.isRunning=true
+    }
     var incomingMode = false
     var incomingSelectionID: String?
     func beginIncomingSelection() { incomingSelectionID = incomingMode ? incomingCallID : nil }
@@ -53,7 +71,7 @@ struct ConversationLine: Identifiable {
         disconnects += 1; busy = false; connected = false; callActive = false; callPending = false
         voiceServiceChecking = false; voiceActive = false; ownsActiveCall = false
     }
-    func hangup() { hangups += 1; callActive = false; callPending = false; busy = false; voiceActive = false; ownsActiveCall = false }
+    func hangup() { managedVoice.isReady=false;managedVoice.isRunning=false;hangups += 1; callActive = false; callPending = false; busy = false; voiceActive = false; ownsActiveCall = false }
     func dial(useAI: Bool, fromPlugin: Bool = false) { dials += 1; callActive = true; voiceActive = useAI; ownsActiveCall = true }
     func prepareBuiltinVoice() throws {
         prepares += 1
@@ -66,7 +84,7 @@ struct ConversationLine: Identifiable {
     }
     func steerConversation(_ instruction: String) throws { steers.append(instruction) }
     func checkVoiceService() { checks += 1; voiceServiceChecking = deferVoiceCheck }
-    func snapshot() -> [String: Any] { ["voiceServiceCheck": ["ok": voiceCheckOK]] }
+    func snapshot() -> [String: Any] { ["voiceServiceCheck": ["ok": voiceCheckOK], "bluetoothState":["idleVerified":!callActive && !callPending,"ownIncoming":ownsActiveCall,"ownDial":false]] }
     func log(_ message: String) {}
 }
 
@@ -289,6 +307,124 @@ private struct PluginChecks {
         do {
             let (_, p, _) = fixture("outgoing-answer-rejected"); let id = try prepare(p)
             check(fails { _ = try p.answer(id: id) }, "answer tool cannot operate on outgoing lease")
+        }
+        do {
+            let (s,p,_) = fixture("managed-outgoing")
+            let id=try prepare(p,mode:"codex_voice")
+            check(fails { _ = try p.start(id:id) } && s.dials == 0,"managed mode refuses dialing before actual readiness")
+            _ = try p.prepareManaged(id:id); await pump()
+            check(p.phase == "ready" && s.managedVoice.isReady && !s.builtinVoiceConfirmed,"managed readiness does not require desktop voice attestation")
+            _ = try p.start(id:id); await pump()
+            check(s.dials == 1 && s.checks == 0,"managed call bypasses API key preflight")
+        }
+        do {
+            let (s,p,_) = fixture("manual-answer-without-prior-lease")
+            s.mode = .codexManaged; s.incomingCallID = "91"; s.callPending = true
+            try p.answerFromConsole()
+            check(p.phase == "preparing_codex_voice" && s.answers == 0 && s.dials == 0,
+                  "owner click binds current ring and prepares voice without an earlier chat task")
+            try? await Task.sleep(nanoseconds:450_000_000)
+            check(s.answers == 1 && s.dials == 0 && p.phase == "in_call",
+                  "ready voice answers only the clicked incoming episode")
+        }
+        do {
+            let (s,p,_) = fixture("manual-answer-caller-left")
+            s.mode = .codexManaged; s.incomingCallID = "92"; s.callPending = true
+            try p.answerFromConsole(); s.incomingCallID = nil; s.callPending = false
+            try? await Task.sleep(nanoseconds:450_000_000)
+            check(s.answers == 0 && s.hangups == 0 && p.phase == "ended" && !s.managedVoice.isRunning,
+                  "ring lost during preparation never answers or hangs up an unowned call")
+        }
+        do {
+            let (s,p,_) = fixture("passive-ring-prewarms-without-answer")
+            s.mode = .codexManaged; s.incomingCallID = "93"; s.callPending = true
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            check(p.phase == "ready" && s.managedVoice.isReady && s.answers == 0 && !p.manualAnswerQueued,
+                  "ring prewarms managed voice without answering before owner click")
+            try p.answerFromConsole()
+            check(s.answers == 1 && s.dials == 0 && !p.manualAnswerQueued,
+                  "owner click answers already prepared ringing episode once")
+        }
+        do {
+            let (s,p,_) = fixture("passive-ring-click-during-prewarm")
+            s.mode = .codexManaged; s.incomingCallID = "94"; s.callPending = true
+            s.managedVoiceDelayNanoseconds = 650_000_000
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            check(p.phase == "preparing_codex_voice" && s.answers == 0,
+                  "voice startup begins at ring before owner click")
+            try p.answerFromConsole()
+            check(p.manualAnswerQueued && s.answers == 0,
+                  "owner click shows queued state while voice starts")
+            try? await Task.sleep(nanoseconds: 850_000_000)
+            check(s.answers == 1 && !p.manualAnswerQueued,
+                  "queued click answers original ring when prewarmed voice becomes ready")
+        }
+        do {
+            let (s,p,_) = fixture("passive-ring-ended-before-click")
+            s.mode = .codexManaged; s.incomingCallID = "95"; s.callPending = true
+            s.managedVoiceDelayNanoseconds = 650_000_000
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            s.incomingCallID = nil; s.callPending = false
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            check(s.answers == 0 && s.hangups == 0 && p.phase == "ended" && !s.managedVoice.isRunning,
+                  "ring ending during passive prewarm cancels voice without answering or hanging up")
+        }
+        do {
+            let (s,p,_) = fixture("auto-default-off")
+            let id=try p.prepareIncoming(task:"offline",maximumSeconds:0,codexThreadID:nil,mode:"codex_voice")["session_id"] as! String
+            _ = try p.prepareManaged(id:id);await pump()
+            s.incomingCallID="71";_ = try p.read(id:id,after:0)
+            check(!p.autoAnswerEnabled && s.answers == 0,"ringing alone never enables autoanswer")
+        }
+        do {
+            let (s,p,_) = fixture("auto-enabled")
+            try p.setAutoAnswer(enabled:true,delay:0,task:"offline")
+            await pump()
+            check(p.autoAnswerEnabled && p.phase == "ready" && s.answers == 0,"owner can explicitly arm standby without answering")
+            s.incomingCallID="72"
+            try? await Task.sleep(nanoseconds:450_000_000)
+            check(s.answers == 1 && s.dials == 0,"armed standby answers a ringing episode through incoming path only")
+            try p.setAutoAnswer(enabled:false,delay:0,task:"")
+            check(!p.autoAnswerEnabled && s.callActive && s.hangups == 0,"disable stops future autoanswer without interrupting current call")
+        }
+        do {
+            let (s,p,_) = fixture("auto-delay-cancel")
+            try p.setAutoAnswer(enabled:true,delay:30,task:"offline");await pump()
+            s.incomingCallID="73"
+            try? await Task.sleep(nanoseconds:450_000_000)
+            try p.setAutoAnswer(enabled:false,delay:0,task:"")
+            try? await Task.sleep(nanoseconds:450_000_000)
+            check(s.answers == 0 && !p.autoAnswerEnabled,"disarm cancels delayed answer")
+        }
+        do {
+            let (s,p,_) = fixture("auto-start-failure");s.failManagedPrepare=true
+            try p.setAutoAnswer(enabled:true,delay:0,task:"offline");await pump()
+            s.incomingCallID="74"
+            try? await Task.sleep(nanoseconds:450_000_000)
+            check(s.answers == 0 && !p.autoAnswerEnabled,"failed voice startup disarms without answering")
+        }
+        do {
+            let (s,p,base) = fixture("auto-fresh-caller")
+            try p.setAutoAnswer(enabled:true,delay:0,task:"offline");await pump()
+            s.incomingCallID="81";try? await Task.sleep(nanoseconds:450_000_000)
+            s.transcript=[ConversationLine(id:"private-first",role:"对方",text:"first caller private canary",final:true)]
+            try? await Task.sleep(nanoseconds:450_000_000)
+            s.hangup();try? await Task.sleep(nanoseconds:450_000_000)
+            await pump()
+            check(p.autoAnswerEnabled && p.phase == "ready" && s.managedVoice.isReady,"normal idle-verified completion rearms with fresh voice")
+            check(s.transcript.isEmpty,"next caller receives no previous transcript")
+            let files=(try? FileManager.default.contentsOfDirectory(at:base.appendingPathComponent("calls"),includingPropertiesForKeys:nil)) ?? []
+            var archivedFound=false
+            for file in files {
+                if let v=try? JSONSerialization.jsonObject(with:Data(contentsOf:file)) as? [String:Any],v["terminal"] as? Bool == true {
+                    let old=try p.read(id:file.deletingPathExtension().lastPathComponent,after:0)
+                    archivedFound = old["session_id"] as? String == file.deletingPathExtension().lastPathComponent && old["terminal"] as? Bool == true
+                }
+            }
+            check(archivedFound,"old lease read returns archived caller, never a new capability")
+            s.incomingCallID="82";try? await Task.sleep(nanoseconds:450_000_000)
+            check(s.answers == 2,"second caller requires a fresh ringing episode")
+            try p.setAutoAnswer(enabled:false,delay:0,task:"")
         }
         let failed = checks.filter { $0["passed"] as? Bool != true }
         let report: [String: Any] = ["passed": checks.count - failed.count, "failed": failed.count,

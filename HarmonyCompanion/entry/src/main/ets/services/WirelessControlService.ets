@@ -17,6 +17,7 @@ class ControlReply extends WirelessHelperStatus {
   routeError: string = '';
   callState: number = -1;
   backgroundActive: boolean = false;
+  standby: boolean = false;
   dialerStage: string = 'idle';
   dialerError: string = '';
   dialerRequestId: string = '';
@@ -30,13 +31,14 @@ export class WirelessControlService {
   // Valid messages from the selected paired Mac renew this inactivity lease.
   // It is intentionally finite so a crashed desktop cannot leave stale phone
   // listeners behind indefinitely, but normal use has no visible countdown.
-  private static readonly IDLE_LEASE_MS: number = 900000;
+  private static readonly IDLE_LEASE_MS: number = 8 * 60 * 60 * 1000;
   private static server: number = -1;
   private static client: number = -1;
   private static context: common.UIAbilityContext | undefined = undefined;
   private static peer: string = '';
   private static generation: number = 0;
   private static active: boolean = false;
+  private static sessionEnabled: boolean = false;
   private static expires: number = 0;
   private static timer: number = -1;
   private static pending: string = '';
@@ -44,6 +46,9 @@ export class WirelessControlService {
   private static status: string = '通话桥尚未启动。';
   private static observer: ((text: string, active: boolean) => void) | undefined = undefined;
   private static reader: ((data: ArrayBuffer) => void) | undefined = undefined;
+  private static clientSilenceTimer: number = -1;
+  private static acceptFailures: number = 0;
+  private static accepting: boolean = false;
   private static routeRequested: boolean = false;
   private static routeActive: boolean = false;
   private static routeError: string = '';
@@ -54,7 +59,8 @@ export class WirelessControlService {
   private static dialerTimer: number = -1;
 
   static setForeground(value: boolean): void { WirelessControlService.foreground = value; }
-  static isActive(): boolean { return WirelessControlService.active; }
+  static isActive(): boolean { return WirelessControlService.active && WirelessControlService.sessionEnabled; }
+  static isListening(): boolean { return WirelessControlService.active; }
 
   static observe(observer: ((text: string, active: boolean) => void) | undefined): void {
     WirelessControlService.observer = observer;
@@ -62,10 +68,10 @@ export class WirelessControlService {
   }
   private static notify(): void {
     if (WirelessControlService.observer) {
-      WirelessControlService.observer(WirelessControlService.status, WirelessControlService.active);
+      WirelessControlService.observer(WirelessControlService.status, WirelessControlService.isActive());
     }
   }
-  static start(context: common.UIAbilityContext, peer: string): void {
+  static start(context: common.UIAbilityContext, peer: string, sessionEnabled: boolean = true): void {
     if (WirelessControlService.active || WirelessControlService.server >= 0 || WirelessControlService.client >= 0) { return; }
     const previous = HspAssistService.wirelessStatus();
     if (previous.active || previous.pendingConnect || !previous.cleanupSucceeded) { return; }
@@ -73,43 +79,85 @@ export class WirelessControlService {
     WirelessControlService.context = context;
     WirelessControlService.peer = peer.toUpperCase();
     WirelessControlService.active = true;
+    WirelessControlService.sessionEnabled = sessionEnabled;
     WirelessControlService.pending = '';
     WirelessControlService.received = 0;
+    WirelessControlService.acceptFailures = 0;
+    WirelessControlService.accepting = false;
     WirelessControlService.routeRequested = false;
     WirelessControlService.routeActive = false;
     WirelessControlService.routeError = '';
     WirelessControlService.dialerStage = 'idle';
     WirelessControlService.dialerError = '';
     WirelessControlService.dialerRequestId = '';
-    WirelessControlService.armLease(generation);
-    WirelessControlService.status = '正在准备通话桥…';
+    if (sessionEnabled) { WirelessControlService.armLease(generation); }
+    WirelessControlService.status = sessionEnabled ? '正在准备通话桥…' : '已准备蓝牙唤起入口，等待 Mac 启动会话。';
     WirelessControlService.notify();
-    // Publish the auxiliary HF service before Mac initiates ACL/SDP.
-    HspAssistService.startWirelessListener(context, peer);
-    try {
-      socket.sppListen('PhoneBridge Control', { uuid: WirelessControlService.uuid,
-        secure: true, type: socket.SppType.SPP_RFCOMM }, (error: BusinessError, server: number) => {
-        if (generation !== WirelessControlService.generation || !WirelessControlService.active) {
-          if (!error && server >= 0) { WirelessControlService.closeServer(server); }
-          return;
-        }
-        if (error) { WirelessControlService.stop(`蓝牙准备失败：${error.code}`); return; }
-        WirelessControlService.server = server;
-        WirelessControlService.status = '已准备好，请在 Mac 上点击连接。';
-        WirelessControlService.notify();
-        WirelessControlService.accept(generation);
-      });
-    } catch (error) { WirelessControlService.stop(`蓝牙准备失败：${(error as BusinessError).code}`); }
+    // The owner explicitly started a paired-device Bluetooth listener. Keep
+    // its system-visible bluetoothInteraction task alive while waiting; when
+    // acquired only after accept, HarmonyOS can suspend the SPP read handler
+    // and leave macOS connected to a stale SDP record with no replies.
+    BluetoothBackground.start(context).then((ready: boolean) => {
+      if (generation !== WirelessControlService.generation || !WirelessControlService.active) { return; }
+      if (!ready) {
+        WirelessControlService.stop('后台蓝牙待命未能启动，请检查通知权限后重试。'); return;
+      }
+      // Keep the gated HF SDP record published alongside the SPP wake entry.
+      // On this phone macOS receives a nil RFCOMM open callback if the SPP
+      // service is the only phone-side record at profile discovery time.
+      HspAssistService.startWirelessListener(context, peer);
+      try {
+        socket.sppListen('PhoneBridge Control', { uuid: WirelessControlService.uuid,
+          secure: true, type: socket.SppType.SPP_RFCOMM }, (error: BusinessError, server: number) => {
+          if (generation !== WirelessControlService.generation || !WirelessControlService.active) {
+            if (!error && server >= 0) { WirelessControlService.closeServer(server); }
+            return;
+          }
+          if (error) { WirelessControlService.stop(`蓝牙准备失败：${error.code}`); return; }
+          WirelessControlService.server = server;
+          WirelessControlService.status = WirelessControlService.sessionEnabled ?
+            '已准备好，请在 Mac 上点击连接。' : '蓝牙唤起入口已就绪，可在 Mac 上点击连接。';
+          WirelessControlService.notify();
+          WirelessControlService.accept(generation);
+        });
+      } catch (error) { WirelessControlService.stop(`蓝牙准备失败：${(error as BusinessError).code}`); }
+    }).catch((error: BusinessError) => {
+      if (generation === WirelessControlService.generation && WirelessControlService.active) {
+        WirelessControlService.stop(`后台蓝牙待命失败：${error.code || 0}`);
+      }
+    });
   }
   private static accept(generation: number): void {
-    if (!WirelessControlService.active || generation !== WirelessControlService.generation) { return; }
+    if (!WirelessControlService.active || generation !== WirelessControlService.generation ||
+      WirelessControlService.accepting || WirelessControlService.server < 0) { return; }
+    WirelessControlService.accepting = true;
     try {
       socket.sppAccept(WirelessControlService.server, (error: BusinessError, client: number) => {
+        if (generation === WirelessControlService.generation) { WirelessControlService.accepting = false; }
         if (generation !== WirelessControlService.generation || !WirelessControlService.active) {
           if (!error && client >= 0) { WirelessControlService.closeClient(client); }
           return;
         }
-        if (error) { WirelessControlService.stop(`连接未完成：${error.code}`); return; }
+        if (error) {
+          // A transient RFCOMM accept failure must not discard the user's
+          // already published listener and background task. Keep the same
+          // trusted peer and retry only while this session still owns them.
+          WirelessControlService.acceptFailures++;
+          if (WirelessControlService.acceptFailures > 3 || WirelessControlService.server < 0) {
+            WirelessControlService.stop(`蓝牙监听连续失败：${error.code}`); return;
+          }
+          WirelessControlService.status = '蓝牙连接中断，正在自动恢复监听…';
+          WirelessControlService.notify();
+          const wait = WirelessControlService.acceptFailures * 300;
+          setTimeout(() => {
+            if (generation === WirelessControlService.generation && WirelessControlService.active &&
+              WirelessControlService.server >= 0 && WirelessControlService.client < 0) {
+              WirelessControlService.accept(generation);
+            }
+          }, wait);
+          return;
+        }
+        WirelessControlService.acceptFailures = 0;
         let actualPeer = '';
         try { actualPeer = socket.getDeviceId(client).toUpperCase(); } catch (error) {}
         if (actualPeer !== WirelessControlService.peer) {
@@ -118,7 +166,8 @@ export class WirelessControlService {
           return;
         }
         const helper = HspAssistService.wirelessStatus();
-        if (!helper.active && !helper.pendingConnect && helper.cleanupSucceeded && WirelessControlService.context) {
+        if (WirelessControlService.sessionEnabled && !helper.active && !helper.pendingConnect &&
+          helper.cleanupSucceeded && WirelessControlService.context) {
           // A completed Mac call retires only the previous auxiliary HF
           // listener. Recreate it when the same paired Mac reconnects so one
           // phone session can serve multiple calls without another tap.
@@ -135,14 +184,24 @@ export class WirelessControlService {
         };
         try {
           socket.on('sppRead', client, WirelessControlService.reader);
-          WirelessControlService.status = 'Mac 已连接，正在准备后台蓝牙连接…';
+          WirelessControlService.armClientSilence(generation, client);
+          WirelessControlService.status = WirelessControlService.sessionEnabled ?
+            'Mac 已连接，正在准备后台蓝牙连接…' : 'Mac 已连接，等待启动通话会话…';
           WirelessControlService.notify();
           WirelessControlService.prepareBackground(generation);
         } catch (error) { WirelessControlService.stop('蓝牙接收未就绪。'); }
       });
-    } catch (error) { WirelessControlService.stop('蓝牙连接未就绪。'); }
+    } catch (error) {
+      WirelessControlService.accepting = false;
+      WirelessControlService.acceptFailures++;
+      if (WirelessControlService.acceptFailures > 3) {
+        WirelessControlService.stop('蓝牙连接未就绪。'); return;
+      }
+      setTimeout(() => { WirelessControlService.accept(generation); }, WirelessControlService.acceptFailures * 300);
+    }
   }
   private static receive(data: ArrayBuffer): void {
+    WirelessControlService.armClientSilence(WirelessControlService.generation, WirelessControlService.client);
     if (WirelessControlService.checkDeadline()) { return; }
     const bytes = new Uint8Array(data);
     WirelessControlService.received += bytes.length;
@@ -180,8 +239,14 @@ export class WirelessControlService {
     const stopRequested = request.op === 'stop';
     const stopGeneration = WirelessControlService.generation;
     if (request.op === 'status' || request.op === 'exchange' || request.op === 'audio' || request.op === 'dial_ui') {
-      WirelessControlService.armLease(WirelessControlService.generation);
+      if (WirelessControlService.sessionEnabled) { WirelessControlService.armLease(WirelessControlService.generation); }
       HspAssistService.renewWirelessLease();
+    }
+    if (request.op === 'start_session') {
+      ok = WirelessControlService.activateSession();
+      if (!ok) { error = 'session-start-not-ready'; }
+      WirelessControlService.sendReply(request.id, ok, error);
+      return;
     }
     if (request.op === 'dial_ui') {
       WirelessControlService.openSystemDialer(request.id, request.number, stopGeneration);
@@ -218,8 +283,47 @@ export class WirelessControlService {
     if (!ok) {
       WirelessControlService.stop('后台蓝牙连接未能启动，请查看应用通知权限后重试。'); return;
     }
-    WirelessControlService.status = 'Mac 已连接，后台蓝牙连接已启用。';
+    WirelessControlService.status = WirelessControlService.sessionEnabled ?
+      'Mac 已连接，后台蓝牙连接已启用。' : 'Mac 已连接，可启动通话会话。';
     WirelessControlService.notify();
+  }
+  static activateSession(): boolean {
+    if (!WirelessControlService.active || !WirelessControlService.context || !BluetoothBackground.isActive()) { return false; }
+    if (WirelessControlService.sessionEnabled) { return true; }
+    try { if (call.getCallStateSync() !== call.CallState.CALL_STATE_IDLE) { return false; } }
+    catch (error) { return false; }
+    const helper = HspAssistService.wirelessStatus();
+    if (!helper.active && (helper.pendingConnect || !helper.cleanupSucceeded)) { return false; }
+    WirelessControlService.sessionEnabled = true;
+    WirelessControlService.armLease(WirelessControlService.generation);
+    if (!helper.active) {
+      HspAssistService.startWirelessListener(WirelessControlService.context, WirelessControlService.peer);
+    }
+    WirelessControlService.status = 'Mac 已请求启动通话会话，正在准备蓝牙电话控制…';
+    WirelessControlService.notify();
+    return true;
+  }
+  // The owner may stop call readiness without removing the paired Mac's
+  // Bluetooth-only wake listener. The background task remains visible to the
+  // owner and is released when the app process is destroyed or Bluetooth ends.
+  static park(reason: string): void {
+    if (!WirelessControlService.active) { return; }
+    WirelessControlService.sessionEnabled = false;
+    if (WirelessControlService.timer >= 0) { clearTimeout(WirelessControlService.timer); WirelessControlService.timer = -1; }
+    WirelessControlService.expires = 0;
+    if (WirelessControlService.client >= 0) { WirelessControlService.recycleClient(WirelessControlService.generation); }
+    else { HspAssistService.stop(reason); }
+    WirelessControlService.status = reason;
+    WirelessControlService.notify();
+    const generation = WirelessControlService.generation;
+    setTimeout(() => {
+      if (generation !== WirelessControlService.generation || !WirelessControlService.active ||
+        !WirelessControlService.context || WirelessControlService.sessionEnabled) { return; }
+      const helper = HspAssistService.wirelessStatus();
+      if (!helper.active && !helper.pendingConnect && helper.cleanupSucceeded) {
+        HspAssistService.startWirelessListener(WirelessControlService.context, WirelessControlService.peer);
+      }
+    }, 600);
   }
   private static openSystemDialer(id: string, number: string, generation: number): void {
     if (!WirelessControlService.context || !WirelessControlService.foreground) {
@@ -314,6 +418,7 @@ export class WirelessControlService {
     reply.routeActive = WirelessControlService.routeActive;
     reply.routeError = WirelessControlService.routeError;
     reply.backgroundActive = BluetoothBackground.isActive();
+    reply.standby = WirelessControlService.active && !WirelessControlService.sessionEnabled;
     reply.dialerStage = WirelessControlService.dialerStage;
     reply.dialerError = WirelessControlService.dialerError;
     reply.dialerRequestId = WirelessControlService.dialerRequestId;
@@ -325,18 +430,45 @@ export class WirelessControlService {
     try { socket.sppWrite(WirelessControlService.client, bytes.buffer); }
     catch (error) { WirelessControlService.stop('控制通道写入失败。'); return; }
   }
+  private static armClientSilence(generation: number, client: number): void {
+    if (WirelessControlService.clientSilenceTimer >= 0) {
+      clearTimeout(WirelessControlService.clientSilenceTimer);
+    }
+    WirelessControlService.clientSilenceTimer = setTimeout(() => {
+      WirelessControlService.clientSilenceTimer = -1;
+      if (generation !== WirelessControlService.generation || !WirelessControlService.active ||
+        WirelessControlService.client !== client) { return; }
+      // A vanished Mac control process must not keep the only SPP client slot.
+      // Never retire this channel merely for silence while a call is ongoing.
+      if (WirelessControlService.dialerStage === 'requested') {
+        WirelessControlService.armClientSilence(generation, client);
+        return;
+      }
+      try {
+        if (call.getCallStateSync() === call.CallState.CALL_STATE_IDLE) {
+          WirelessControlService.recycleClient(generation);
+          return;
+        }
+      } catch (error) {}
+      WirelessControlService.armClientSilence(generation, client);
+    }, 6000);
+  }
   private static recycleClient(generation: number): void {
     if (!WirelessControlService.active || generation !== WirelessControlService.generation) { return; }
     // End the completed call's auxiliary HF resources, but retain the user's
     // explicitly started control listener. This keeps the phone ready for a
     // later plugin call until the inactivity lease or the user stops it.
     HspAssistService.stop('Mac 已结束本次连接。');
-    BluetoothBackground.retainForReconnect();
+    if (WirelessControlService.clientSilenceTimer >= 0) {
+      clearTimeout(WirelessControlService.clientSilenceTimer);
+      WirelessControlService.clientSilenceTimer = -1;
+    }
     const client = WirelessControlService.client;
     if (client >= 0 && WirelessControlService.reader) {
       try { socket.off('sppRead', client, WirelessControlService.reader); } catch (error) {}
     }
     WirelessControlService.reader = undefined;
+    WirelessControlService.acceptFailures = 0;
     WirelessControlService.pending = '';
     WirelessControlService.received = 0;
     WirelessControlService.routeRequested = false;
@@ -352,22 +484,22 @@ export class WirelessControlService {
     // Recreating it in accept() is too late: macOS has already completed
     // profile discovery by then and never initiates the helper's SLC.
     const retired = HspAssistService.wirelessStatus();
-    if (WirelessControlService.context && !retired.active && !retired.pendingConnect && retired.cleanupSucceeded) {
+    if (WirelessControlService.context && !retired.active &&
+      !retired.pendingConnect && retired.cleanupSucceeded) {
       HspAssistService.startWirelessListener(WirelessControlService.context, WirelessControlService.peer);
     }
-    WirelessControlService.armLease(generation);
-    WirelessControlService.status = '已准备好，等待 Mac 下次连接。';
+    if (WirelessControlService.sessionEnabled) { WirelessControlService.armLease(generation); }
+    WirelessControlService.status = WirelessControlService.sessionEnabled ?
+      '已准备好，等待 Mac 下次连接。' : '蓝牙唤起入口已就绪，等待 Mac 启动会话。';
     WirelessControlService.notify();
-    setTimeout(() => {
-      if (generation === WirelessControlService.generation && WirelessControlService.active &&
-        WirelessControlService.client < 0 && WirelessControlService.server >= 0) {
-        WirelessControlService.accept(generation);
-      }
-    }, 300);
+    // Register the next native accept before the background JS task can be
+    // suspended. A timer here can leave a published SDP record with no accept
+    // pending after the screen locks, so Mac connects but receives no bytes.
+    WirelessControlService.accept(generation);
   }
   static checkDeadline(): boolean {
-    if (WirelessControlService.active && Date.now() >= WirelessControlService.expires) {
-      WirelessControlService.stop('Mac 长时间未响应，会话已自动结束。'); return true;
+    if (WirelessControlService.active && WirelessControlService.sessionEnabled && Date.now() >= WirelessControlService.expires) {
+      WirelessControlService.park('Mac 长时间未响应，通话会话已暂停；蓝牙唤起入口仍可用。'); return true;
     }
     return false;
   }
@@ -376,7 +508,7 @@ export class WirelessControlService {
     WirelessControlService.expires = Date.now() + WirelessControlService.IDLE_LEASE_MS;
     WirelessControlService.timer = setTimeout(() => {
       if (generation === WirelessControlService.generation) {
-        WirelessControlService.stop('Mac 长时间未响应，会话已自动结束。');
+        WirelessControlService.park('Mac 长时间未响应，通话会话已暂停；蓝牙唤起入口仍可用。');
       }
     }, WirelessControlService.IDLE_LEASE_MS);
   }
@@ -402,6 +534,12 @@ export class WirelessControlService {
   }
   static stop(reason: string): void {
     WirelessControlService.generation++;
+    WirelessControlService.accepting = false;
+    WirelessControlService.sessionEnabled = false;
+    if (WirelessControlService.clientSilenceTimer >= 0) {
+      clearTimeout(WirelessControlService.clientSilenceTimer);
+      WirelessControlService.clientSilenceTimer = -1;
+    }
     BluetoothBackground.stop();
     if (WirelessControlService.dialerTimer >= 0) { clearTimeout(WirelessControlService.dialerTimer); }
     WirelessControlService.dialerTimer = -1;
@@ -432,6 +570,6 @@ export class WirelessControlService {
   }
   static dump(): string {
     WirelessControlService.checkDeadline();
-    return `PhoneBridgeWireless: active=${WirelessControlService.active}; server=${WirelessControlService.server}; client=${WirelessControlService.client}; expires=${WirelessControlService.expires}; foreground=${WirelessControlService.foreground}; dialerStage=${WirelessControlService.dialerStage}; dialerError=${WirelessControlService.dialerError}; ${BluetoothBackground.dump()}`;
+    return `PhoneBridgeWireless: active=${WirelessControlService.active}; sessionEnabled=${WirelessControlService.sessionEnabled}; server=${WirelessControlService.server}; client=${WirelessControlService.client}; accepting=${WirelessControlService.accepting}; expires=${WirelessControlService.expires}; foreground=${WirelessControlService.foreground}; dialerStage=${WirelessControlService.dialerStage}; dialerError=${WirelessControlService.dialerError}; ${BluetoothBackground.dump()}`;
   }
 }

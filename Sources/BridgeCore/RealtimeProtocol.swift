@@ -146,7 +146,7 @@ public struct RealtimeProtocolReducer {
         guard activeResponseID == nil else { return [] }
         return [.send(try Self.encode(["type": "response.create", "response": [
             "output_modalities": ["audio"],
-            "instructions": "请主动简短问候，说明你是机主委托的 AI 语音助手，然后让对方说话。用自然普通话，最多一到两句话。"
+            "instructions": "外拨开场用“你好，我想……”自然概括本次通话任务中的具体目的，然后让对方说话。不要在开场主动介绍 AI 身份；若对方问起，须如实说明。用自然普通话，最多一到两句话。"
         ]]))]
     }
 

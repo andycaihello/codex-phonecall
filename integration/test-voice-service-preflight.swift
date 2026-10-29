@@ -28,7 +28,31 @@ enum VoiceAPIKeychain {
     static func save(_ key: String) throws { fatalError("Unexpected key save") }
     static func delete() throws { fatalError("Unexpected key delete") }
 }
-@MainActor enum FakeCounts { static var bluetooth = 0, pcm = 0, audioDevice = 0, starts = 0, stops = 0, greeting = 0, input = 0 }
+@MainActor final class PCMMicrophonePermission {
+    var status = "authorized"
+    func check(helperURL: URL, request: Bool) async throws -> String { status }
+}
+@MainActor final class StablePCMHelper {
+    func readyURL() throws -> URL { URL(fileURLWithPath: "/tmp/phonebridge-fake-pcm.app") }
+}
+enum CodexManagedEvent {
+    case ready, interrupted, hangupRequested
+    case healthAlert(String)
+    case audio(Data)
+    case transcript(String, String, String, Bool)
+    case failed(String)
+}
+@MainActor final class CodexManagedVoice {
+    var onEvent: ((CodexManagedEvent) -> Void)?
+    var isReady = false, isRunning = false, cleanupVerified = true
+    var snapshot: [String:Any] { ["ready":isReady] }
+    func prepare(task: String, forIncomingCall: Bool = false) async throws { isReady=true;isRunning=true }
+    func beginCall() {}
+    func appendAudio(_ data: Data) {}
+    func steer(_ text: String) {}
+    func stop() { isReady=false;isRunning=false }
+}
+@MainActor enum FakeCounts { static var bluetooth = 0, pcm = 0, audioDevice = 0, starts = 0, stops = 0, greeting = 0, input = 0, localServiceStops = 0 }
 @MainActor final class BluetoothControlProcess {
     var onEvent: (([String: Any]) -> Void)?, onExit: ((Int32) -> Void)?
     var cleanupVerified = true, resourcesReleased = true, isRunning = false
@@ -97,7 +121,7 @@ struct AudioDeviceInfo {
 @MainActor final class LocalHandsFreeService {
     var diagnostic: [String: Any] = [:]
     func start(supportedFeatures: UInt16 = 0) throws -> UInt8 { return 2 }
-    func stop() -> Int32 { return 0 }
+    func stop() -> Int32 { FakeCounts.localServiceStops += 1; return 0 }
 }
 @MainActor final class BuiltinVoiceRoute {
     struct Status { var ready = true }

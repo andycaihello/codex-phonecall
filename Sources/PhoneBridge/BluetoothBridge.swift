@@ -26,6 +26,7 @@ final class BluetoothBridge: NSObject, ObservableObject, IOBluetoothDeviceAsyncC
     private var queryDevice: IOBluetoothDevice?
     private var timeout: DispatchWorkItem?
     private var central: CBCentralManager?
+    private var enumeratingPairedDevices = false
     private let localService = LocalHandsFreeService()
     private let incoming = IncomingHfpSession()
     private let rawProbe = RawHfpProbe()
@@ -46,17 +47,26 @@ final class BluetoothBridge: NSObject, ObservableObject, IOBluetoothDeviceAsyncC
 
     func refresh() {
         guard !refreshing else { return }
-        if central == nil {
-            // Keep CoreBluetooth for the normal permission/status callback, but
-            // do not block Classic Bluetooth HFP on that callback. On a
-            // background-only app macOS can defer it indefinitely even while
-            // IOBluetooth reports the radio and paired devices as available.
-            central = CBCentralManager(delegate: self, queue: .main)
-        }
         radioState = "正在读取蓝牙设备"
         refreshing = true
-        // On macOS 26, IOBluetooth's first coordinator initialization waits on
-        // CoreBluetooth. Running it on the main queue can deadlock its callback.
+        // This product uses Classic Bluetooth. Creating CBCentralManager in
+        // the same process before IOBluetooth's first paired-device query can
+        // leave its private coordinator waiting forever on macOS 26. The same
+        // query succeeds in an isolated process without CBCentralManager.
+        enumeratePairedDevices()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak self] in
+            guard let self, self.refreshing else { return }
+            self.refreshing = false
+            if self.radioState != "蓝牙已开启" { self.radioState = "蓝牙初始化超时" }
+            self.log("系统蓝牙查询超时；可重新刷新。若重复发生，请检查系统蓝牙权限。")
+        }
+    }
+
+    private func enumeratePairedDevices() {
+        guard !enumeratingPairedDevices else { return }
+        enumeratingPairedDevices = true
+        // Keep IOBluetooth off the main queue so its private coordinator never
+        // blocks the CoreBluetooth delegate callback or the local console.
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let paired = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] ?? []
             // macOS can return the same newly paired device more than once.
@@ -74,14 +84,11 @@ final class BluetoothBridge: NSObject, ObservableObject, IOBluetoothDeviceAsyncC
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.devices = found
+                self.enumeratingPairedDevices = false
                 self.refreshing = false
-                if self.central?.state == .poweredOn || !found.isEmpty { self.radioState = "蓝牙已开启" }
+                self.radioState = found.isEmpty ? "未找到配对设备" : "蓝牙已开启"
                 self.log("已读取 \(found.count) 个配对设备。")
             }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak self] in
-            guard let self, self.refreshing else { return }
-            self.log("系统蓝牙查询仍未返回。请检查系统蓝牙权限；窗口和控制接口仍可操作。")
         }
     }
 
@@ -89,8 +96,8 @@ final class BluetoothBridge: NSObject, ObservableObject, IOBluetoothDeviceAsyncC
         switch central.state {
         case .poweredOn:
             radioState = "蓝牙已开启"
-            refreshing = false
-            refresh()
+            if refreshing { enumeratePairedDevices() }
+            else { refresh() }
         case .unauthorized:
             radioState = "蓝牙权限未允许"
             refreshing = false

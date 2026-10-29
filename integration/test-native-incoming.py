@@ -33,7 +33,7 @@ for scope in (["--incoming-only"], ["--allow-number", "5551234"]):
     assert len(rows) == len(commands)
     for (command, allowed), result in zip(commands, rows):
         if "--incoming-only" not in scope:
-            allowed = command["op"] in ("dial", "helper_dial_ui") and len(command) == 3
+            allowed = command["op"] in ("dial", "helper_dial_ui") and len(command) == 3 or command["op"] == "answer" and command["id"] == "answer-1"
         assert result["ok"] is allowed, (command["id"], scope)
         assert result["deviceQueries"] is False and result["dialed"] is False
         checks += 1

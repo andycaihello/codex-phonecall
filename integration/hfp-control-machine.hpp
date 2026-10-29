@@ -48,7 +48,7 @@ public:
         if (stage != "disconnected" || ready || hasOwnedDialIntent() || hasPending()) return false;
         incomingOnly = true; permittedNumber.clear(); return true;
     }
-    bool incomingAvailable() const { return incomingOnly && ready && !failed && !ownsCall() && !answerQueued && call == 0 && setup == 1 && held == 0 && incomingToken != 0; }
+    bool incomingAvailable() const { return ready && !failed && !ownsCall() && !answerQueued && call == 0 && setup == 1 && held == 0 && incomingToken != 0; }
     bool ownsCall() const { return ownDial || ownIncoming; }
     int call = -1, setup = -1, held = -1;
     std::string stage = "disconnected";
@@ -203,7 +203,7 @@ private:
     uint64_t incomingSerial = 0, ownedIncomingToken = 0;
     bool incomingRinging = false, answerQueued = false;
     bool answerWriteAllowed(uint64_t token, double now, bool claimed = false) const {
-        return incomingOnly && !stopping && !failed && !ownershipContested && token != 0 && token == incomingToken &&
+        return !stopping && !failed && !ownershipContested && token != 0 && token == incomingToken &&
             !ownDial && (!ownIncoming || (claimed && ownedIncomingToken == token)) &&
             call == 0 && setup == 1 && held == 0 && now - lastSnapshot <= 2;
     }
@@ -215,7 +215,7 @@ private:
             !idle() && now - lastSnapshot <= 2;
     }
     void observeCallState(bool fullSnapshot, bool callIndicator) {
-        if (incomingOnly) {
+        {
             const bool ringingNow = call == 0 && setup == 1 && held == 0;
             if (ringingNow && !incomingRinging) incomingToken = ++incomingSerial;
             incomingRinging = ringingNow;

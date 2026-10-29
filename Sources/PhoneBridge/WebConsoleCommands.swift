@@ -12,6 +12,9 @@ private struct ConsoleSettings: Codable {
     var mode: String
     var maximumSeconds: Int
     var voice: String
+    var autoAnswerDelaySeconds: Int?
+    var autoAnswerTask: String?
+    var automaticVoicePreferred: Bool?
 }
 
 @MainActor extension BridgeModel {
@@ -34,10 +37,12 @@ private struct ConsoleSettings: Codable {
         }
         // A separate projection avoids exposing native logs, credentials, call
         // lease IDs, audio data or private diagnostic paths to the page.
-        return ["version": "0.7.9", "backendRunning": true,
+        return ["version": "0.8.3", "backendRunning": true,
             "status": session.status, "captionWarning": session.captionWarning, "error": lastError.isEmpty ? session.error : lastError,
             "captionSource": session.usesCodexCaptions ? "codex_transcript" : "apple_speech",
             "codexCaptions": session.codexCaptions.snapshot,
+            "managedMicrophonePermission": session.managedMicrophone.status,
+            "managedVoice": session.managedVoice.snapshot, "autoAnswer": pluginCalls.autoAnswerSnapshot,
             "modeID": session.mode.rawValue, "mode": session.mode.title,
             "connected": session.connected, "busy": session.busy || webDialTask != nil || webPermissionPending,
             "audioValidationPrepared": session.audioValidationPrepared, "audioValidationReady": session.audioValidationReady, "validationPromptSent": session.validationPromptSent,
@@ -45,7 +50,7 @@ private struct ConsoleSettings: Codable {
             "audioValidationDurationSeconds": session.audioValidationDurationSeconds,
             "audioValidationVoiceConfirmedAt": session.audioValidationVoiceConfirmedAt,
             "audioValidationStopReason": session.audioValidationStopReason,
-            "incomingMode": session.incomingMode, "incomingAvailable": pluginCalls.currentIncomingSelected,
+            "incomingMode": session.incomingMode, "incomingAvailable": session.incomingCallID != nil,
             "phoneStateUnknown": session.phoneStateUnknown, "dialerStage": session.dialerStage,
             "bluetoothCallControlReady": session.bluetoothCallControlReady, "dialTransport": "bluetooth_hfp",
             "callActive": session.callActive, "callPending": session.callPending, "voiceActive": session.voiceActive,
@@ -53,6 +58,7 @@ private struct ConsoleSettings: Codable {
             "maximumSeconds": session.maximumSeconds, "voice": session.voice.rawValue,
             "cloudConsent": session.cloudConsent, "keyConfigured": session.keyConfigured,
             "pluginSessionActive": session.pluginSessionActive, "pluginPhase": pluginCalls.phase,
+            "manualAnswerQueued": pluginCalls.manualAnswerQueued,
             "builtinVoiceConfirmed": session.builtinVoiceConfirmed, "builtinRouteActive": session.builtinAudioPrepared,
             "builtinRouteReady": session.builtinAudioReady,
             "continuousVoiceInstalled": session.continuousVoice.installed,
@@ -71,6 +77,10 @@ private struct ConsoleSettings: Codable {
                 return ["address": peer.address, "name": peer.name]
             },
             "transcript": session.transcript.suffix(100).map { ["id": $0.id, "role": $0.role, "text": $0.text, "final": $0.final] },
+            "consoleEvents": session.events.suffix(50).map { entry in
+                entry.replacingOccurrences(of: "(?<![0-9])[0-9]{11,15}(?![0-9])", with: "[号码]", options: .regularExpression)
+                    .replacingOccurrences(of: "(?i)(?:[0-9a-f]{2}:){5}[0-9a-f]{2}", with: "[设备]", options: .regularExpression)
+            },
             "diagnosticSummary": "蓝牙：\(bluetooth.radioState)\n手机配置：\(session.phone == nil ? "未选择" : "已保存")\n插件阶段：\(pluginCalls.phase)\n控制台：仅本机访问\n内置语音端到端验证：待完成\nRealtime 端到端验证：待完成"]
     }
 
@@ -99,7 +109,7 @@ private struct ConsoleSettings: Codable {
                 try idle()
                 guard !session.builtinRoute.active else { throw BridgeError("请先停止内置语音并恢复音频。") }
                 let number = try string("number"), instructions = try string("instructions")
-                guard PhoneNumber.valid(number), !instructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                guard (PhoneNumber.valid(number) || (number.isEmpty && value["modeID"] as? String == "codex_voice")), !instructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                       instructions.utf8.count <= 6000, let mode = ConversationMode(rawValue: try string("modeID")),
                       let voice = RealtimeVoice(rawValue: try string("voice")),
                       let duration = value["maximumSeconds"] as? NSNumber, CFGetTypeID(duration) != CFBooleanGetTypeID(),
@@ -145,7 +155,9 @@ private struct ConsoleSettings: Codable {
             case "forget_phone":
                 try idle(); try session.forgetPhone(); try saveConsoleSettings()
             case "connect":
-                try idle(); session.connect()
+                try idle()
+                if session.mode == .codexManaged { session.incomingMode = true; session.beginIncomingSelection() }
+                session.connect()
                 if !session.error.isEmpty { throw BridgeError(session.error) }
             case "diagnose_control_link":
                 try idle()
@@ -158,6 +170,7 @@ private struct ConsoleSettings: Codable {
                 session.connect(readOnlyProbeInterval: interval.doubleValue)
                 if !session.error.isEmpty { throw BridgeError(session.error) }
             case "disconnect", "hangup":
+                if action == "disconnect" { try pluginCalls.setAutoAnswer(enabled: false, delay: 0, task: "") }
                 cancelWebDial()
                 if session.pluginSessionActive { try pluginCalls.endFromConsole(disconnect: action == "disconnect") }
                 else if action == "disconnect" {
@@ -183,12 +196,56 @@ private struct ConsoleSettings: Codable {
                 }
                 session.dial(useAI: false, systemDialerDiagnostic: true)
                 if !session.error.isEmpty { throw BridgeError(session.error) }
+            case "request_managed_audio":
+                try idle(allowLease: true)
+                webPermissionPending = true
+                Task { [weak self] in
+                    guard let self else { return }
+                    defer { self.webPermissionPending = false }
+                    do { try await self.session.authorizeManagedAudio() }
+                    catch { self.lastError = error.localizedDescription }
+                }
+            case "check_managed_voice":
+                try idle()
+                guard !session.managedVoice.isRunning else { throw BridgeError("自动语音正在运行。") }
+                webDialTask = Task { [weak self] in
+                    guard let self else { return }
+                    defer { self.webDialTask = nil; self.session.stopManagedVoice() }
+                    do {
+                        self.session.status = "正在自行启动 Codex 语音并验证音频回复；不拨号、不采集麦克风。"
+                        try await self.session.managedVoice.prepare(task: "只进行语音服务自检，不执行工具或其他操作。")
+                        self.session.status = "Codex 自动启动与语音回复检查通过；测试连接已关闭。"
+                    } catch { self.lastError = error.localizedDescription }
+                }
+            case "start_managed_voice":
+                guard session.mode == .codexManaged else { throw BridgeError("请先保存 Codex 自动语音方案。") }
+                if session.pluginSessionActive { try pluginCalls.prepareManagedFromConsole() }
+                else {
+                    try idle()
+                    _ = try pluginCalls.prepare(number: session.number, task: session.instructions, mode: "codex_voice", maximumSeconds: session.maximumSeconds)
+                    try pluginCalls.prepareManagedFromConsole()
+                }
+            case "stop_managed_voice":
+                guard !session.callActive, !session.callPending else { throw BridgeError("请先结束电话。") }
+                try pluginCalls.setAutoAnswer(enabled: false, delay: 0, task: "")
+                if session.pluginSessionActive { try pluginCalls.endFromConsole() }
+                session.stopManagedVoice()
+            case "auto_answer":
+                let enabled = try boolean("enabled")
+                guard let delay = value["delaySeconds"] as? NSNumber, CFGetTypeID(delay) != CFBooleanGetTypeID(),
+                      delay.doubleValue == Double(delay.intValue), (0...30).contains(delay.intValue) else { throw BridgeError("自动接听等待时间须为 0 至 30 秒。") }
+                try pluginCalls.setAutoAnswer(enabled: enabled, delay: delay.intValue, task: try string("task"))
+                try saveConsoleSettings()
             case "answer_incoming":
                 try pluginCalls.answerFromConsole()
             case "dial":
+                if session.mode == .codexManaged, session.pluginSessionActive {
+                    try pluginCalls.startManagedFromConsole(); break
+                }
                 try idle()
                 guard session.connectedForCurrentNumber else { throw BridgeError("请先保存本次号码并连接手机。") }
                 if session.mode == .openaiRealtime { try startWebRealtimeDial() }
+                else if session.mode == .codexManaged { throw BridgeError("请在本任务中通过插件拨号，或先启动自动语音。") }
                 else { session.dial(useAI: true); if !session.error.isEmpty { throw BridgeError(session.error) } }
             case "interrupt": session.interruptSpeech()
             case "request_permissions":
@@ -196,7 +253,7 @@ private struct ConsoleSettings: Codable {
                 webPermissionPending = true
                 Task { [weak self] in
                     guard let self else { return }
-                    if self.session.usesCodexCaptions || self.session.mode == .openaiRealtime {
+                    if self.session.usesCodexCaptions || self.session.mode == .openaiRealtime || self.session.mode == .codexManaged {
                         _ = await AVCaptureDevice.requestAccess(for: .audio)
                     } else {
                         await self.session.builtinCaptions.requestPermissions()
@@ -285,7 +342,10 @@ private struct ConsoleSettings: Codable {
 
     func saveConsoleSettings() throws {
         let settings = ConsoleSettings(phone: session.phone, number: session.number, instructions: session.instructions,
-            mode: session.mode.rawValue, maximumSeconds: session.maximumSeconds, voice: session.voice.rawValue)
+            mode: session.mode == .codexManaged ? "builtin_voice" : session.mode.rawValue, maximumSeconds: session.maximumSeconds, voice: session.voice.rawValue,
+            autoAnswerDelaySeconds: pluginCalls.autoAnswerSnapshot["delaySeconds"] as? Int,
+            autoAnswerTask: pluginCalls.autoAnswerSnapshot["task"] as? String,
+            automaticVoicePreferred: session.mode == .codexManaged)
         let url = directory.appendingPathComponent("console-settings.json")
         try JSONEncoder().encode(settings).write(to: url, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
@@ -297,12 +357,14 @@ private struct ConsoleSettings: Codable {
             let attrs = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
             guard attrs.isRegularFile == true, attrs.isSymbolicLink != true, (attrs.fileSize ?? Int.max) <= 32_768 else { throw PhonePeerError.invalidIdentity }
             let settings = try JSONDecoder().decode(ConsoleSettings.self, from: Data(contentsOf: url))
-            guard (1...2).contains(settings.schema), settings.number.isEmpty || PhoneNumber.valid(settings.number),
+            guard (1...3).contains(settings.schema), settings.number.isEmpty || PhoneNumber.valid(settings.number),
                   settings.instructions.utf8.count <= 6000, (0...Int(Int32.max)).contains(settings.maximumSeconds),
-                  let mode = ConversationMode(rawValue: settings.mode), let voice = RealtimeVoice(rawValue: settings.voice) else { throw PhonePeerError.invalidIdentity }
+                  let savedMode = ConversationMode(rawValue: settings.mode), let voice = RealtimeVoice(rawValue: settings.voice) else { throw PhonePeerError.invalidIdentity }
             if let phone = settings.phone { try session.configurePhone(phone) }
-            session.number = settings.number; session.instructions = settings.instructions; session.mode = mode
+            session.number = settings.number; session.instructions = settings.instructions; session.mode = settings.automaticVoicePreferred == true ? .codexManaged : savedMode
             session.maximumSeconds = settings.schema < 2 ? 0 : settings.maximumSeconds; session.voice = voice
+            pluginCalls.loadAutoAnswerPreferences(delay: settings.autoAnswerDelaySeconds ?? 2, task: settings.autoAnswerTask ?? "")
+            // Automatic answering is always disabled after restart.
             // Consent, user voice attestation, calls and connections are never restored.
         } catch { lastError = "本机配置无法读取，请在控制台重新选择手机并保存设置。" }
     }

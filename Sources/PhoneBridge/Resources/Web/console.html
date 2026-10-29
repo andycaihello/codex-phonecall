@@ -9,16 +9,21 @@
     :root{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:#182231;background:#f4f6f9;font-size:13px;line-height:1.5;--surface:#fff;--muted:#6c7687;--line:#e3e7ee;--ink:#182231;--accent:#245eea;--soft:#edf3ff;--danger:#b73440;--input:#fff}
     *{box-sizing:border-box}body{margin:0;min-width:300px}button,input,textarea,select{font:inherit}button,a,input,textarea,select{touch-action:manipulation}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.43}button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #81a8ff;outline-offset:2px}button{border:1px solid var(--line);border-radius:9px;min-height:35px;padding:7px 12px;background:var(--surface);color:var(--ink);font-weight:560;white-space:nowrap;transition:background .12s}button:hover:not(:disabled){background:#f1f4f9}button.primary{background:var(--accent);border-color:var(--accent);color:white}button.primary:hover:not(:disabled){background:#174fd6}button.danger{color:var(--danger);background:#fff5f5;border-color:#f2dadd}button.danger:hover:not(:disabled){background:#ffebed}button.quiet{background:transparent;min-height:30px;padding:4px 8px}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}h1,h2,p{margin:0}h1{font-size:19px;letter-spacing:-.6px;font-weight:680}h2{font-size:13px;font-weight:650}[hidden]{display:none!important}
     .shell{max-width:720px;margin:0 auto;padding:20px 16px 28px}.heading{display:flex;align-items:center;gap:10px;margin-bottom:14px}.mark{width:33px;height:33px;display:grid;place-items:center;background:var(--accent);color:#fff;border-radius:10px}.mark svg{width:19px;height:19px}.heading-copy{flex:1}.eyebrow{font-size:10px;color:var(--muted);letter-spacing:1.2px;margin-top:1px}.badge{font-size:11px;display:inline-flex;align-items:center;gap:5px;color:var(--muted);white-space:nowrap}.dot{width:6px;height:6px;border-radius:50%;background:#a6aebb;flex:none}.badge.ok{color:#258052}.badge.ok .dot{background:#2f9a64}.badge.warn{color:#a66e15}.badge.warn .dot{background:#cf9332}.badge.bad{color:var(--danger)}.badge.bad .dot{background:var(--danger)}
-    .status-strip{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px}.status-item{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:10px}.status-label{color:var(--muted);font-size:11px}.status-value{font-size:12px;font-weight:600}.status-copy{color:var(--muted);font-size:12px;padding:0 2px;margin-bottom:13px;overflow-wrap:anywhere;min-height:18px}
+    .status-strip{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}.status-item{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:10px}.status-label{color:var(--muted);font-size:11px}.status-value{font-size:12px;font-weight:600}.status-copy{color:var(--muted);font-size:12px;padding:0 2px;margin-bottom:13px;overflow-wrap:anywhere;min-height:18px}
+    .top-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 9px}.top-actions button{min-width:0;padding:6px 3px;font-size:11px;letter-spacing:-.2px}
     .card{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:14px;margin-top:11px}.phone-card{margin-bottom:12px}.phone-card .card-head{margin-bottom:7px}.phone-choice{display:flex;gap:7px}.phone-choice select{min-width:0;flex:1}.pairing-box{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);margin-top:9px;padding-top:10px}.pairing-box div{min-width:0}.pairing-box strong{font-size:11px;font-weight:620}.pairing-box p{font-size:10px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}.card-head{display:flex;align-items:center;gap:8px;justify-content:space-between;margin-bottom:12px}.card-head .badge{font-size:10px}.modes{display:grid;grid-template-columns:1fr 1fr;background:#f1f3f7;border-radius:9px;padding:3px;margin-bottom:13px;gap:3px}.mode-label{position:relative;min-width:0}.mode-label input{position:absolute;opacity:0;width:1px;height:1px}.mode-label span{display:block;border:1px solid transparent;text-align:center;border-radius:7px;padding:7px 3px;font-size:12px;font-weight:570;cursor:pointer;color:var(--muted)}.mode-label input:checked+span{background:var(--surface);box-shadow:0 1px 3px #14274b12;color:var(--accent);border-color:#dae4fc}.mode-label input:focus-visible+span{outline:3px solid #81a8ff}.mode-label input:disabled+span{cursor:not-allowed;opacity:.6}.field{display:block;margin:10px 0 0}.field-label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px}.row{display:flex;align-items:flex-start;gap:9px}.grow{flex:1;min-width:0}.duration{width:91px;flex:none}input[type=text],input[type=tel],input[type=password],textarea,select{width:100%;border:1px solid #d9dfe8;border-radius:8px;background:var(--input);color:var(--ink);padding:8px 9px;min-height:36px}textarea{resize:vertical;min-height:78px;max-height:220px;line-height:1.65}input:disabled,textarea:disabled,select:disabled{color:var(--muted);background:#f7f8fa;opacity:.8}.number{font-variant-numeric:tabular-nums;letter-spacing:.35px}.hint{font-size:11px;color:var(--muted);margin-top:7px;overflow-wrap:anywhere}.lock-note{display:flex;align-items:flex-start;gap:6px;background:#f5f7fa;color:var(--muted);padding:8px 9px;border-radius:7px;font-size:11px;margin-bottom:10px}.save-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:9px}.draft-note{font-size:11px;color:#98712a}.actions{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:7px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}.actions button{padding-left:5px;padding-right:5px}.minor-actions{display:flex;gap:7px;margin-top:9px}.minor-actions>*{flex:1}
     .setup-title{display:flex;align-items:center;gap:7px}.step-number{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--soft);color:var(--accent);font-size:10px;font-weight:700}.permissions{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.permission{padding:4px 8px;border:1px solid var(--line);border-radius:6px;font-size:11px;display:inline-flex;gap:5px;align-items:center}.permission strong{font-weight:500;color:var(--muted)}.permission.authorized strong{color:#258052}.permission.denied strong,.permission.restricted strong{color:var(--danger)}.setup-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.handoff{background:var(--soft);border-radius:8px;padding:10px 11px;color:#3c507a;font-size:11px;margin-top:10px;line-height:1.8}.handoff strong{font-weight:600}.check-row{display:flex;gap:8px;align-items:flex-start;font-size:11px;line-height:1.65;cursor:pointer;margin:10px 0}.check-row input{width:14px;height:14px;margin:3px 0 0;accent-color:var(--accent);flex:none}.full{width:100%}.restore-area{border-top:1px solid var(--line);margin-top:12px;padding-top:2px}.key-row{display:flex;gap:7px}.key-row input{min-width:0;flex:1}.key-status{display:flex;justify-content:space-between;align-items:center;margin:5px 0 9px;min-height:25px}.key-status span{font-size:11px;color:var(--muted)}.consent{background:#f6f8fb;border-radius:8px;padding:9px 10px;margin:10px 0}.consent .check-row{margin:0}.service-result{font-size:11px;color:var(--muted);margin-top:7px;overflow-wrap:anywhere}.service-row{display:flex;gap:8px}.service-row button:first-child{flex:1}.voice-select{width:102px;margin-top:0}.voice-select select{min-height:35px;padding:6px 8px}
     .feedback{display:flex;align-items:flex-start;gap:8px;background:#fff5e8;border:1px solid #f0dbbb;color:#8d5f25;border-radius:9px;padding:9px 11px;margin:10px 0;font-size:12px;overflow-wrap:anywhere}.feedback.error{color:var(--danger);background:#fff2f3;border-color:#f0d2d6}.feedback.success{color:#267348;background:#f0faf4;border-color:#d4eadc}.feedback span{flex:1}.feedback button{border:0;background:transparent;color:inherit;padding:0;min-height:20px;line-height:20px;font-size:17px}.backend-error{color:var(--danger);font-size:11px;overflow-wrap:anywhere;margin:9px 1px 0}
-    .transcript-card{padding-bottom:10px}.transcript-card .card-head{margin-bottom:8px}.live-state{font-size:10px;display:flex;align-items:center;gap:5px;color:var(--muted)}.live-state.listening{color:#258052}.live-state.listening .dot{background:#2f9a64}.transcript{max-height:420px;min-height:100px;overflow-y:auto;scrollbar-width:thin;overscroll-behavior:contain;scroll-behavior:auto}.empty{padding:26px 10px;text-align:center;font-size:12px;color:var(--muted)}.caption{padding:10px 0;border-top:1px solid #edf0f4}.caption:first-child{border-top:0}.caption-head{display:flex;gap:7px;align-items:center;font-size:10px;margin-bottom:4px;color:var(--muted)}.role{color:#4b5f7c;font-weight:600}.caption.ai .role{color:var(--accent)}.partial-label{font-size:9px;color:#8792a5;background:#f0f3f8;padding:1px 5px;border-radius:4px}.caption-text{font-size:13px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}.caption.partial .caption-text{color:#61718a}.transcript-foot{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:8px;margin-top:5px;gap:8px}.transcript-foot span{font-size:10px;color:var(--muted)}.scroll-button{font-size:10px!important;min-height:25px!important;padding:2px 6px!important}
+    .log-card{margin:0 0 12px;padding:10px 12px}.log-card .card-head{margin-bottom:5px}.log-current{color:var(--muted);font-size:11px;overflow-wrap:anywhere}.log-card.problem{border-color:#efc9ce;background:#fff7f7}.log-card.problem .log-current{color:var(--danger);font-weight:600}.log-items{max-height:180px;overflow:auto;margin-top:10px;border-top:1px solid var(--line)}.log-entry{padding:7px 1px;border-bottom:1px solid var(--line);font-size:11px;color:var(--muted);overflow-wrap:anywhere}.log-entry.error{color:var(--danger)}.log-entry strong{display:block;font-weight:620}.log-entry small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+    .call-layout{display:flex;flex-direction:column;gap:12px}.control-column{min-width:0}.transcript-card{margin-top:0;padding-bottom:10px;min-width:0}.transcript-card .card-head{margin-bottom:8px}.live-state{font-size:10px;display:flex;align-items:center;gap:5px;color:var(--muted)}.live-state.listening{color:#258052}.live-state.listening .dot{background:#2f9a64}.transcript{max-height:360px;min-height:52px;overflow-y:auto;scrollbar-width:thin;overscroll-behavior:contain;scroll-behavior:auto}.call-live .transcript-card{position:sticky;top:8px;z-index:5;display:flex;flex-direction:column;max-height:min(56vh,520px);box-shadow:0 8px 30px #18223116}.call-live .transcript{min-height:100px;max-height:none;flex:1}.empty{padding:17px 10px;text-align:center;font-size:12px;color:var(--muted)}.caption{padding:10px 0;border-top:1px solid #edf0f4}.caption:first-child{border-top:0}.caption-head{display:flex;gap:7px;align-items:center;font-size:10px;margin-bottom:4px;color:var(--muted)}.role{color:#4b5f7c;font-weight:600}.caption.ai .role{color:var(--accent)}.partial-label{font-size:9px;color:#8792a5;background:#f0f3f8;padding:1px 5px;border-radius:4px}.caption-text{font-size:13px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}.caption.partial .caption-text{color:#61718a}.transcript-foot{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:8px;margin-top:5px;gap:8px}.transcript-foot span{font-size:10px;color:var(--muted)}.scroll-button{font-size:10px!important;min-height:25px!important;padding:2px 6px!important}
     details{margin:12px 2px 0;color:var(--muted);font-size:11px}summary{cursor:pointer;user-select:none;padding:4px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;line-height:1.7;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;max-height:260px;overflow:auto}.footer{font-size:10px;color:#929baa;text-align:center;margin-top:16px}.spinner{display:inline-block;width:8px;height:8px;border:1.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
-    @media(min-width:600px){.shell{padding:24px}.workspace{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.workspace .card{margin-top:0}.transcript-card{margin-top:12px}.heading{margin-bottom:18px}.transcript{max-height:470px}.setup-column>.card+.card{margin-top:12px}}
-    @media(max-width:360px){.shell{padding:14px 10px}.card{padding:12px}.actions{gap:5px}.actions button{font-size:12px}.badge{font-size:10px}.duration{width:83px}}
+    @media(min-width:600px){.shell{padding:24px}.workspace{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.workspace .card{margin-top:0}.heading{margin-bottom:18px}.setup-column>.card+.card{margin-top:12px}}
+    @media(min-width:900px){.shell{max-width:1180px}.call-layout{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(340px,.92fr);align-items:start;gap:16px}.control-column{grid-column:1;grid-row:1}.transcript-card,.call-live .transcript-card{grid-column:2;grid-row:1;position:sticky;top:16px;display:flex;flex-direction:column;height:min(80vh,760px);max-height:none;box-shadow:none}.transcript,.call-live .transcript{max-height:none;min-height:0;flex:1}.workspace{display:block}.workspace .card{margin-top:12px}}
+    .transcript-card:not(.expanded),.call-live .transcript-card:not(.expanded){height:auto;max-height:none}.transcript-card:not(.expanded) .transcript,.call-live .transcript-card:not(.expanded) .transcript{flex:none;min-height:52px;max-height:min(32vh,240px)}.transcript-head-actions{display:flex;align-items:center;gap:8px;min-width:0}.transcript-toggle{min-height:27px!important;font-size:11px;padding:3px 8px!important}
+    @media(max-width:600px){.top-actions{gap:4px}.top-actions button{padding:5px 2px;letter-spacing:-.35px}}
+    @media(max-width:360px){.shell{padding:14px 10px}.card{padding:12px}.top-actions button{font-size:10px}.badge{font-size:10px}.duration{width:83px}}
     @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-    @media(prefers-color-scheme:dark){:root{--surface:#1d2330;--muted:#9aa7bb;--line:#333d50;--ink:#e7edf7;--accent:#7da6ff;--soft:#263653;--input:#181f2c;background:#141923;color:var(--ink)}.modes,.lock-note{background:#161c27}.mode-label input:checked+span{border-color:#435b87}.status-copy,.hint{color:var(--muted)}input[type=text],input[type=tel],input[type=password],textarea,select{border-color:#3b465a}input:disabled,textarea:disabled,select:disabled{background:#1a202b}button:hover:not(:disabled){background:#2a3447}button.primary{background:#487fed;border-color:#487fed;color:white}button.primary:hover:not(:disabled){background:#598bf0}button.danger{background:#35242b;color:#ffb4bb;border-color:#61414b}button.danger:hover:not(:disabled){background:#482c34}.handoff{color:#c0d0ee}.consent{background:#19212e}.permission.authorized strong,.badge.ok,.live-state.listening{color:#7ac69b}.permission.denied strong,.permission.restricted strong,.backend-error{color:#ffb4bb}.caption{border-color:#30394a}.role{color:#b8c8e2}.partial-label{background:#303c51;color:#b6c5de}.caption.partial .caption-text{color:#a5b6d0}.feedback{color:#e6be84;background:#392f23;border-color:#60503a}.feedback.error{color:#ffbdc5;background:#38252e;border-color:#69434e}.feedback.success{color:#a2d9b7;background:#24392e;border-color:#3b5c47}.draft-note{color:#d4b781}.footer{color:#758199}}
+    @media(prefers-color-scheme:dark){:root{--surface:#1d2330;--muted:#9aa7bb;--line:#333d50;--ink:#e7edf7;--accent:#7da6ff;--soft:#263653;--input:#181f2c;background:#141923;color:var(--ink)}.modes,.lock-note{background:#161c27}.mode-label input:checked+span{border-color:#435b87}.status-copy,.hint{color:var(--muted)}input[type=text],input[type=tel],input[type=password],textarea,select{border-color:#3b465a}input:disabled,textarea:disabled,select:disabled{background:#1a202b}button:hover:not(:disabled){background:#2a3447}button.primary{background:#487fed;border-color:#487fed;color:white}button.primary:hover:not(:disabled){background:#598bf0}button.danger{background:#35242b;color:#ffb4bb;border-color:#61414b}button.danger:hover:not(:disabled){background:#482c34}.handoff{color:#c0d0ee}.consent{background:#19212e}.permission.authorized strong,.badge.ok,.live-state.listening{color:#7ac69b}.permission.denied strong,.permission.restricted strong,.backend-error{color:#ffb4bb}.caption{border-color:#30394a}.role{color:#b8c8e2}.partial-label{background:#303c51;color:#b6c5de}.caption.partial .caption-text{color:#a5b6d0}.feedback{color:#e6be84;background:#392f23;border-color:#60503a}.feedback.error{color:#ffbdc5;background:#38252e;border-color:#69434e}.feedback.success{color:#a2d9b7;background:#24392e;border-color:#3b5c47}.log-card.problem{background:#38252e;border-color:#69434e}.log-card.problem .log-current,.log-entry.error{color:#ffbdc5}.draft-note{color:#d4b781}.footer{color:#758199}}
   </style>
 </head>
 <body>
@@ -32,8 +37,17 @@
     <div class="status-item"><span class="status-label">手机</span><span class="status-value" id="phone-state">—</span></div>
     <div class="status-item"><span class="status-label">通话</span><span class="status-value" id="call-state">—</span></div>
   </div>
+  <div class="top-actions" aria-label="电话操作"><button id="connection" type="button" disabled>连接手机</button><button id="answer-incoming" class="primary" type="button" disabled>接听当前来电</button><button id="dial" class="primary" type="button" disabled>打开手机拨号</button><button id="hangup" class="danger" type="button" disabled>结束通话</button></div>
   <p class="status-copy" id="status-copy">正在读取状态…</p>
   <div id="feedback" class="feedback" role="status" hidden><span id="feedback-text"></span><button id="dismiss-feedback" type="button" aria-label="关闭提示">×</button></div>
+  <section id="console-log" class="card log-card" aria-labelledby="log-title"><div class="card-head"><h2 id="log-title">运行日志</h2><button id="log-toggle" class="quiet transcript-toggle" type="button" aria-expanded="false" aria-controls="log-items">展开全部</button></div><p id="log-current" class="log-current">等待后台状态…</p><div id="log-items" class="log-items" role="log" aria-label="连接与通话日志" hidden></div></section>
+  <div class="call-layout">
+    <section class="card transcript-card" aria-labelledby="transcript-title">
+      <div class="card-head"><h2 id="transcript-title">实时字幕</h2><div class="transcript-head-actions"><span id="live-state" class="live-state"><span class="dot"></span><span id="live-label">等待通话</span></span><button id="transcript-toggle" class="quiet transcript-toggle" type="button" aria-expanded="false" aria-controls="transcript">展开全部</button></div></div>
+      <div id="transcript" class="transcript" role="log" aria-label="通话字幕" aria-live="polite" aria-relevant="additions text"><p class="empty">通话开始后，对方和 AI 的字幕会显示在这里。</p></div>
+      <div class="transcript-foot"><span id="caption-note">双方字幕由本机语音识别，可能继续修订；AI 字幕为我方输出转写。</span><button id="scroll-latest" class="quiet scroll-button" type="button" hidden>回到最新 ↓</button></div>
+    </section>
+    <div class="control-column">
   <section class="card phone-card" aria-labelledby="phone-title">
     <div class="card-head"><h2 id="phone-title">配对手机</h2><button id="refresh-phones" class="quiet" type="button" disabled>刷新列表</button></div>
     <div class="phone-choice"><select id="paired-phone" aria-label="选择已配对的手机" disabled><option value="">请选择手机</option></select><button id="select-phone" type="button" disabled>使用这部手机</button></div>
@@ -48,6 +62,7 @@
       <div class="card-head"><h2 id="task-title">本次通话</h2><span id="lease-badge" class="badge" hidden><span class="dot"></span>Codex 任务使用中</span></div>
       <div id="lock-note" class="lock-note" hidden>当前任务已固定号码与语音方案，结束并恢复音频后可修改。</div>
       <div class="modes" role="radiogroup" aria-label="语音方案">
+        <label class="mode-label"><input type="radio" name="mode" value="codex_voice" disabled><span>Codex 自动语音 · 实验</span></label>
         <label class="mode-label"><input type="radio" name="mode" value="builtin_voice" checked disabled><span>Codex / ChatGPT 语音</span></label>
         <label class="mode-label"><input type="radio" name="mode" value="openai_realtime" disabled><span>OpenAI Realtime</span></label>
       </div>
@@ -57,13 +72,29 @@
       </div>
       <label class="field"><span class="field-label">交给 AI 的任务</span><textarea id="instructions" rows="3" placeholder="例如：询问业务办理条件，核实所需材料，并把结果告诉我。" maxlength="6000" disabled></textarea></label>
       <div class="save-row"><span id="draft-note" class="draft-note"> </span><button id="save-config" class="quiet" type="button" disabled>保存设置</button></div>
-      <div class="actions"><button id="connection" type="button" disabled>连接手机</button><button id="answer-incoming" class="primary" type="button" hidden disabled>接听当前来电</button><button id="dial" class="primary" type="button" disabled>打开手机拨号</button><button id="hangup" class="danger" type="button" disabled>结束通话</button></div>
       <p id="incoming-note" class="hint" hidden>手动代接当前来电 · 来电身份未核验，不会自动接听下一通</p>
       <p id="dial-hint" class="hint">准备好语音后，在手机系统界面确认拨号。</p>
       <div id="api-interrupt-row" class="minor-actions" hidden><button id="interrupt" type="button" disabled>打断 AI，听对方说话</button></div>
       <p id="backend-error" class="backend-error" hidden></p>
     </section>
     <div class="setup-column">
+      <section id="managed-panel" class="card" aria-labelledby="managed-title" hidden>
+        <div class="card-head"><h2 id="managed-title">Codex 自动语音</h2><span id="managed-state" class="badge">未启动</span></div>
+        <p class="hint">通话桥自行建立独立 Codex 语音连接，无需点击桌面语音。使用现有 Codex 登录与语音额度；只传入本次任务，通话音频会发送至 OpenAI。</p>
+        <div class="setup-actions"><button id="managed-permissions" type="button" disabled>允许通话音频</button><button id="managed-start" class="primary" type="button" disabled>启动自动语音</button></div>
+        <button id="managed-check" class="full" type="button" disabled>检查自动语音（不拨号）</button>
+        <button id="managed-stop" class="full" type="button" disabled>停止自动语音</button>
+        <p id="managed-runtime" class="hint"></p>
+        <p id="managed-health" class="hint" hidden></p>
+        <div class="restore-area">
+          <div class="card-head"><h2>来电自动代接</h2><span id="auto-answer-state" class="badge">未开启</span></div>
+          <label class="field"><span class="field-label">响铃后等待</span><select id="auto-answer-delay"><option value="0">立即接听</option><option value="1">1 秒</option><option value="2" selected>2 秒</option><option value="3">3 秒</option><option value="5">5 秒</option><option value="10">10 秒</option><option value="30">30 秒</option></select></label>
+          <label class="field"><span class="field-label">代接任务</span><textarea id="auto-answer-task" maxlength="6000" rows="3">询问来电事项并记下信息，告知会转达机主，不作额外承诺。</textarea></label>
+          <label class="check-row"><input id="auto-answer-toggle" type="checkbox" disabled><span>开启本次待命：允许 AI 自动接听所有来电并将通话音频发送至 OpenAI，使用 Codex 语音额度</span></label>
+          <p id="auto-answer-status" class="hint">默认关闭；关闭后不接新电话，当前电话仍可继续。程序重启后需重新开启。</p>
+          <p class="hint">来电者身份无法核验。开启前请确认手机已连接；语音未就绪、连接中断或服务繁忙时不会接听。</p>
+        </div>
+      </section>
       <section id="builtin-panel" class="card" aria-labelledby="builtin-title">
         <div class="card-head"><div class="setup-title"><span class="step-number">1</span><h2 id="builtin-title">准备内置语音</h2></div><span id="route-badge" class="badge"><span class="dot"></span><span id="route-label">未准备</span></span></div>
         <div class="permissions"><span id="microphone-permission" class="permission">麦克风 <strong>—</strong></span><span id="speech-permission" class="permission">字幕识别 <strong>—</strong></span></div>
@@ -89,11 +120,8 @@
       </section>
     </div>
   </div>
-  <section class="card transcript-card" aria-labelledby="transcript-title">
-    <div class="card-head"><h2 id="transcript-title">实时字幕</h2><span id="live-state" class="live-state"><span class="dot"></span><span id="live-label">等待通话</span></span></div>
-    <div id="transcript" class="transcript" role="log" aria-label="通话字幕" aria-live="polite" aria-relevant="additions text"><p class="empty">通话开始后，对方和 AI 的字幕会显示在这里。</p></div>
-    <div class="transcript-foot"><span id="caption-note">双方字幕由本机语音识别，可能继续修订；AI 字幕为我方输出转写。</span><button id="scroll-latest" class="quiet scroll-button" type="button" hidden>回到最新 ↓</button></div>
-  </section>
+    </div>
+  </div>
   <details id="diagnostics"><summary>诊断摘要</summary><pre id="diagnostic-text">正在读取…</pre><button id="validate-bluetooth" class="quiet" type="button" disabled>验证蓝牙拨号与声音</button><button id="inspect-dialer" hidden class="quiet" type="button" disabled>检查手机拨号页面</button><p>验证仅拨打已配置号码，通过蓝牙控制拨号与挂断；不会操作手机系统界面。</p><button id="prepare-validation" hidden class="quiet" type="button" disabled>准备本机声音验证</button><button id="send-validation" class="quiet" type="button" disabled>发送一次测试语音</button><p>准备时不采集声音；手机开始呼叫后启动本机音频与字幕。确认对方接听后再发送测试语音。时限使用上方保存的通话时长。</p><p id="validation-window" aria-live="polite"></p></details>
   <p class="footer">本机通话桥 <span id="version"></span></p>
 </main>
@@ -106,16 +134,72 @@
   const permissions = {authorized:'已允许',notDetermined:'待允许',denied:'未允许',restricted:'受限制',notRequired:'本模式不需要'};
   const encoder = new TextEncoder();
   let state = null, online = false, dirty = false, pollInFlight = false, commandSerial = 0, stateRevision = 0;
-  let transcriptSignature = '', followLatest = true, previousRouteActive = false;
-  let phoneChoice = '', phonesSignature = '';
+  let transcriptSignature = '', followLatest = true, transcriptExpanded = false, logExpanded = false, previousRouteActive = false;
+  let logSignature = '', lastLoggedError = '', lastLoggedWarning = '', lastRecordedAt = 0;
+  const errorHistory = [];
+  let phoneChoice = '', phonesSignature = '', autoPreferencesLoaded = false;
   const selectedMode = () => modeInputs.find(input => input.checked)?.value || 'builtin_voice';
   const activeCall = s => !!(s.callActive || s.callPending);
   const idle = s => !s.busy && !activeCall(s) && !s.voiceServiceChecking;
   const anyPending = () => pending.size > 0;
   const setText = (id, value) => { $(id).textContent = typeof value === 'string' ? value : ''; };
+  const safeLogText = value => String(value).replace(/(?<!\d)\d{11,15}(?!\d)/g,'[号码]').replace(/(?:[0-9a-f]{2}:){5}[0-9a-f]{2}/gi,'[设备]');
+  function recoveryAdvice(message) {
+    if (/电话声音输入中断/.test(message)) return '确认手机通话页面仍选中蓝牙；通话结束后在控制台重新连接并查看语音健康计数。';
+    if (/发言长时间未定稿/.test(message)) return '系统正在尝试一次恢复。若几秒内没有回应，请对方重说；通话后检查语音健康计数。';
+    if (/未接受本轮恢复请求/.test(message)) return '通话结束后重新准备 Codex 自动语音，保留本轮诊断记录供排查。';
+    if (/手机蓝牙通话桥未回应|helper_command_timeout:status/.test(message)) return '蓝牙配对或基础连接已存在，但手机 App 的控制服务未回应。若手机通话桥已打开，可直接点「连接手机」再试；若 App 已被系统结束，需要先在手机打开一次。';
+    if (/关闭未完全确认|清理尚未确认/.test(message)) return '旧进程已退出。点击「连接手机」重新核实；若手机伴侣没有回应，需先让它恢复运行。';
+    if (/接听|来电/.test(message)) return '先确认这一通来电是否已结束；重新连接只核实状态，不会自动接听下一通。';
+    if (/麦克风|权限/.test(message)) return '在系统权限窗口允许通话桥所需权限，然后在控制台重新检查。';
+    if (/字幕|识别/.test(message)) return '检查 Mac 的语音识别权限和音频输入；电话可继续，恢复后再验证字幕。';
+    if (/超时|无回复|未响应|连接未完成/.test(message)) return '检查手机伴侣是否仍在后台运行、两端蓝牙是否开启；若手机 App 已被系统结束，需在手机打开一次，然后从控制台重连。';
+    return '查看设备与通话状态后重试；控制台不会自动拨号或接听。';
+  }
+  function recordError(message) {
+    const safe = safeLogText(message);
+    if (!safe) return;
+    const now = Date.now();
+    if (errorHistory[0]?.message === safe && now - lastRecordedAt < 1500) return;
+    lastRecordedAt = now;
+    errorHistory.unshift({message:safe,advice:recoveryAdvice(safe),time:new Date().toLocaleTimeString()});
+    if (errorHistory.length > 12) errorHistory.pop();
+  }
+  function renderLog(s) {
+    const currentError = online ? (typeof s.error === 'string' ? safeLogText(s.error) : '') : '通话桥后台暂时不可用。';
+    if (currentError && currentError !== lastLoggedError) {
+      recordError(currentError);
+    }
+    lastLoggedError = currentError;
+    const currentWarning = online && typeof s.captionWarning === 'string' ? safeLogText(s.captionWarning) : '';
+    if (currentWarning && currentWarning !== lastLoggedWarning) recordError(currentWarning);
+    lastLoggedWarning = currentWarning;
+    $('console-log').classList.toggle('problem',!!(currentError || currentWarning));
+    const events = Array.isArray(s.consoleEvents) ? s.consoleEvents.filter(v => typeof v === 'string').slice(-30).reverse() : [];
+    setText('log-current',currentError || currentWarning || events[0] || errorHistory[0]?.message || (typeof s.status === 'string' ? safeLogText(s.status) : '后台在线'));
+    setText('log-toggle',logExpanded ? '收起' : `展开全部 (${events.length + errorHistory.length})`);
+    $('log-toggle').setAttribute('aria-expanded',String(logExpanded));
+    $('log-items').hidden = !logExpanded;
+    const signature = JSON.stringify([events,errorHistory]);
+    if (signature === logSignature) return;
+    logSignature = signature;
+    const list = $('log-items'); list.replaceChildren();
+    for (const error of errorHistory) {
+      const item = document.createElement('div'), title = document.createElement('strong'), advice = document.createElement('small');
+      item.className = 'log-entry error'; title.textContent = error.time + '  ' + error.message; advice.textContent = '建议：' + error.advice;
+      item.append(title,advice); list.append(item);
+    }
+    for (const event of events) {
+      const item = document.createElement('div'); item.className = 'log-entry'; item.textContent = event; list.append(item);
+    }
+    if (!events.length && !errorHistory.length) {
+      const item = document.createElement('div'); item.className = 'log-entry'; item.textContent = '暂无操作记录。'; list.append(item);
+    }
+  }
   function feedback(message, kind = '') {
     setText('feedback-text', message); $('feedback').className = 'feedback' + (kind ? ' ' + kind : '');
     $('feedback').hidden = !message;
+    if (kind === 'error') recordError(message);
   }
   function draft() {
     return {action:'configure',modeID:selectedMode(),number:$('number').value.trim(),instructions:$('instructions').value,
@@ -123,7 +207,7 @@
   }
   function validDraft() {
     const d = draft();
-    return /^\+?[0-9]{3,15}$/.test(d.number) && d.instructions.trim().length > 0 &&
+    return (/^\+?[0-9]{3,15}$/.test(d.number) || (d.modeID === 'codex_voice' && d.number === '')) && d.instructions.trim().length > 0 &&
       encoder.encode(d.instructions).length <= 6000 && Number.isInteger(d.maximumSeconds) && d.maximumSeconds >= 0 && d.maximumSeconds <= 2147483647;
   }
   function setDraft(s) {
@@ -142,14 +226,17 @@
   }
   function renderTranscript(s) {
     const lines = Array.isArray(s.transcript) ? s.transcript.slice(-100).filter(line => line && typeof line.text === 'string') : [];
-    const signature = JSON.stringify(lines.map(line => [line.id,line.role,line.text,line.final]));
+    const signature = JSON.stringify([transcriptExpanded,lines.map(line => [line.id,line.role,line.text,line.final])]);
     if (signature === transcriptSignature) return;
     transcriptSignature = signature;
+    $('transcript-toggle').textContent = transcriptExpanded ? '收起' : (lines.length > 1 ? `展开全部 (${lines.length})` : '展开全部');
+    $('transcript-toggle').setAttribute('aria-expanded',String(transcriptExpanded));
+    document.querySelector('.transcript-card').classList.toggle('expanded',transcriptExpanded);
     const box = $('transcript'), oldTop = box.scrollTop, fragment = document.createDocumentFragment();
     if (!lines.length) {
       const empty = document.createElement('p'); empty.className = 'empty';
       empty.textContent = '通话开始后，对方和 AI 的字幕会显示在这里。'; fragment.append(empty);
-    } else for (const line of lines) {
+    } else for (const line of transcriptExpanded ? lines : lines.slice(-1)) {
       const entry = document.createElement('article'), head = document.createElement('div');
       const role = typeof line.role === 'string' ? line.role : '对方';
       entry.className = 'caption' + (/^(AI|assistant)$/i.test(role) ? ' ai' : '') + (line.final === true ? '' : ' partial');
@@ -160,11 +247,12 @@
       entry.append(head,text); fragment.append(entry);
     }
     box.replaceChildren(fragment);
-    if (followLatest) box.scrollTop = box.scrollHeight; else box.scrollTop = oldTop;
-    $('scroll-latest').hidden = followLatest;
+    if (followLatest || !transcriptExpanded) box.scrollTop = box.scrollHeight; else box.scrollTop = oldTop;
+    $('scroll-latest').hidden = !transcriptExpanded || followLatest;
   }
   function render() {
     const s = state || {}, ready = online && !!state, lease = !!s.pluginSessionActive, held = !!s.builtinRouteActive;
+    document.querySelector('.shell').classList.toggle('call-live', !!(s.callActive || s.voiceActive));
     const locked = lease || (held && !s.continuousVoiceActive), editing = ready && idle(s) && !locked && !anyPending();
     if (state && (!dirty || locked)) { setDraft(s); if (locked) dirty = false; }
     const api = selectedMode() === 'openai_realtime';
@@ -196,7 +284,7 @@
       : '仅在手机通话界面没有蓝牙路由时使用。');
     badge('backend-badge', online ? 'ok' : 'bad'); setText('backend-label', online ? '后台在线' : (state ? '后台未连接' : '连接后台中'));
     setText('phone-state', s.connected ? '已连接' : s.busy ? '处理中' : ready ? '未连接' : '—');
-    setText('call-state', s.phoneStateUnknown ? '需在手机核实' : s.callActive ? '拨号 / 通话中' : s.callPending ? '等待手机确认' : s.busy ? '处理中' : ready ? '空闲' : '—');
+    setText('call-state', s.phoneStateUnknown ? '需在手机核实' : s.callActive ? '拨号 / 通话中' : s.incomingAvailable ? '有来电响铃' : s.callPending ? '等待手机确认' : s.busy ? '处理中' : ready ? '空闲' : '—');
     setText('status-copy', online ? (s.status || '后台已连接') : '正在等待本机后台，连接恢复后会自动更新。');
     $('lease-badge').hidden = !lease; $('lock-note').hidden = !locked;
     modeInputs.forEach(input => { input.disabled = !editing; });
@@ -204,13 +292,37 @@
     const needsDisconnect = !!s.connected && $('number').value.trim() !== s.number;
     $('save-config').disabled = !editing || !dirty || !validDraft() || needsDisconnect;
     setText('draft-note', dirty ? '有未保存的修改' : locked ? '设置由当前任务持有' : '');
-    $('builtin-panel').hidden = api; $('api-panel').hidden = !api;
+    const managed = selectedMode() === 'codex_voice';
+    $('builtin-panel').hidden = api || managed; $('api-panel').hidden = !api;
+    $('managed-panel').hidden = !managed;
+    const mv = s.managedVoice || {}, auto = s.autoAnswer || {};
+    if (!autoPreferencesLoaded && s.autoAnswer) {
+      if ([0,1,2,3,5,10,30].includes(auto.delaySeconds)) $('auto-answer-delay').value = String(auto.delaySeconds);
+      if (typeof auto.task === 'string' && auto.task) $('auto-answer-task').value = auto.task;
+      autoPreferencesLoaded = true;
+    }
+    setText('managed-state',mv.ready ? '语音已就绪' : mv.running ? '正在启动' : '未启动');
+    setText('managed-runtime',mv.error || (mv.installed ? '独立语音运行时已安装；不改变系统默认音频设备。' : '需要先安装可选的 Codex 语音运行时，详见项目说明。'));
+    const health = mv.health || {};
+    const hasHealth = Number.isFinite(health.inputPCMBytes);
+    $('managed-health').hidden = !hasHealth;
+    if (hasHealth) setText('managed-health',`电话输入 ${Math.round(health.inputPCMBytes / 1000)} KB · 已送 ${health.sentAudioFrames || 0} 帧 · AI 输出 ${Math.round((health.outputPCMBytes || 0) / 1000)} KB · 对方/AI 定稿 ${health.userFinals || 0}/${health.assistantFinals || 0}`);
+    $('managed-start').disabled = !ready || anyPending() || activeCall(s) || s.busy || mv.running || dirty || (lease && s.modeID !== 'codex_voice');
+    $('managed-check').disabled = !ready || anyPending() || activeCall(s) || s.busy || lease || mv.running || !mv.installed;
+    $('managed-stop').disabled = !ready || anyPending() || activeCall(s) || (!mv.running && !lease);
+    $('managed-permissions').disabled = !ready || anyPending() || activeCall(s) || s.busy || s.managedMicrophonePermission === 'authorized';
+    $('auto-answer-toggle').checked = !!auto.enabled;
+    $('auto-answer-toggle').disabled = !ready || anyPending() || (!auto.enabled && (lease || activeCall(s) || s.busy || !s.phoneConfigured || !mv.installed));
+    $('auto-answer-delay').disabled = !!auto.enabled || anyPending();
+    $('auto-answer-task').disabled = !!auto.enabled || anyPending();
+    setText('auto-answer-state',auto.enabled ? '已开启' : '未开启');
+    setText('auto-answer-status',auto.status || '自动接听未开启');
     $('continuous-note').hidden = !s.continuousVoiceActive;
     setText('voice-confirmation-label', s.continuousVoiceActive ? '当前 Codex 语音已选择 PhoneBridge Voice Input；换号时保留语音会话' : '我已启动当前对话的语音，并选择手机麦克风');
     const operable = ready && !anyPending();
     setText('connection', s.connected ? '断开手机' : s.busy ? '连接处理中' : '连接手机');
     $('connection').disabled = !operable || (s.connected ? activeCall(s) : (dirty || s.busy || lease || !s.phoneConfigured));
-    const builtinReady = held && s.builtinRouteReady && s.builtinVoiceConfirmed;
+    const builtinReady = managed ? !!mv.ready : held && s.builtinRouteReady && s.builtinVoiceConfirmed;
     const apiReady = s.cloudConsent;
     $('validate-bluetooth').disabled = !operable || !idle(s) || !s.bluetoothCallControlReady || held || lease;
     $('prepare-validation').disabled = !operable || !idle(s) || !s.connected || held || lease || s.dialerStage !== 'submitted';
@@ -223,15 +335,17 @@
       ? (s.audioValidationStoppedAt > 0 ? validationReason : '声音验证剩余约 ' + validationRemaining + ' 秒；到时主动停止音频')
       : s.audioValidationPrepared ? '声音已准备，等待手机开始呼叫后计时' : '');
     $('inspect-dialer').disabled = !operable || !idle(s) || dirty || !s.connected || held || lease;
-    $('answer-incoming').hidden = !s.incomingMode;
-    $('incoming-note').hidden = !s.incomingMode;
-    $('answer-incoming').disabled = !operable || !s.incomingAvailable || s.busy || !builtinReady || s.pluginPhase !== 'ready';
-    $('dial').hidden = !!s.incomingMode;
-    $('dial').disabled = !operable || !idle(s) || dirty || !s.connected || !(api ? apiReady : builtinReady);
+    $('answer-incoming').hidden = false;
+    $('incoming-note').hidden = !s.incomingMode && !managed;
+    setText('incoming-note', auto.enabled ? '本次待命已授权自动代接 · 来电者身份未核验' : s.manualAnswerQueued ? '已收到接听指令；语音就绪后只接听你点击的这一通。' : s.incomingAvailable ? (s.pluginPhase === 'preparing_codex_voice' ? '正在预热 Codex 语音；点击即可排队接听当前来电，不会自动接听。' : '检测到来电；点击后只接听当前这一通。') : '已连接时监听来电；接听仍需点击，不会自动接听下一通。');
+    setText('answer-incoming', s.manualAnswerQueued ? '已请求接听 · 正在准备语音' : s.pluginPhase === 'answering' ? '正在接听…' : '接听当前来电');
+    $('answer-incoming').disabled = !operable || (!s.incomingMode && !managed) || !!s.manualAnswerQueued || !s.incomingAvailable || s.busy || (managed ? (lease && s.pluginPhase !== 'ready' && s.pluginPhase !== 'preparing_codex_voice' && s.pluginPhase !== 'prepared') : !builtinReady || s.pluginPhase !== 'ready');
+    $('dial').hidden = false;
+    $('dial').disabled = !!s.incomingMode || !operable || (managed ? (activeCall(s) || s.busy || s.pluginPhase !== 'ready') : !idle(s)) || dirty || !s.connected || !(api ? apiReady : builtinReady);
     $('hangup').disabled = !ready || pending.has('hangup') || !(activeCall(s) || s.busy || lease);
     setText('dial', s.callPending ? '电话正在呼叫' : '蓝牙拨号');
     setText('hangup', s.callActive || s.callPending ? '结束通话' : (s.busy || lease) ? '结束任务' : '结束通话');
-    setText('dial-hint', s.incomingMode ? (builtinReady ? '语音已确认，可以接听本任务选定的当前来电。' : '先准备连续音频，再确认当前 Codex 语音已启动。') : needsDisconnect ? '先断开手机，再保存新号码。' : dirty ? '先保存设置，再连接。' : api ? '会先检查语音服务，再通过蓝牙拨打已保存号码。' : builtinReady ? '通过蓝牙拨号和挂断；实际电话声音需独立验证。' : '准备音频并确认当前对话的语音已启动。');
+    setText('dial-hint', managed ? (mv.ready ? 'Codex 自动语音已就绪；可接听来电或拨打本次授权号码。' : '点击启动自动语音，或开启来电自动代接；无需操作桌面语音按钮。') : s.incomingMode ? (builtinReady ? '语音已确认，可以接听本任务选定的当前来电。' : '先准备连续音频，再确认当前 Codex 语音已启动。') : needsDisconnect ? '先断开手机，再保存新号码。' : dirty ? '先保存设置，再连接。' : api ? '会先检查语音服务，再通过蓝牙拨打已保存号码。' : builtinReady ? '通过蓝牙拨号和挂断；实际电话声音需独立验证。' : '准备音频并确认当前对话的语音已启动。');
     $('api-interrupt-row').hidden = !api || !s.voiceActive; $('interrupt').disabled = !operable || !s.voiceActive;
     const backendError = typeof s.error === 'string' ? s.error : ''; setText('backend-error',backendError); $('backend-error').hidden = !backendError;
     const needsSpeech = s.modeID === 'builtin_voice' && s.captionSource !== 'codex_transcript';
@@ -262,10 +376,11 @@
     setText('check-service',s.voiceServiceChecking ? '正在检查…' : '检查语音服务');
     setText('service-result',s.voiceServiceStatus || '只检查服务连接，不拨电话。');
     $('live-state').className = 'live-state' + (s.voiceActive || s.callActive ? ' listening' : '');
-    setText('live-label',s.voiceActive || s.phoneStateUnknown ? '需在手机核实' : s.callActive ? '拨号 / 通话中' : s.callPending ? '等待手机确认' : '等待通话');
+    setText('live-label',s.phoneStateUnknown ? '需在手机核实' : s.callActive && s.voiceActive ? '通话中 · 字幕同步' : s.callActive ? '拨号 / 通话中' : s.callPending ? '等待手机确认' : '等待通话');
     setText('caption-note',s.captionWarning || (s.modeID === 'builtin_voice' ? (s.captionSource === 'codex_transcript' ? '字幕来自当前 Codex 语音的定稿文字，按句同步，不重新识别音频。' : '双方声音由本机转写，识别中文字可能修订。') : '双方实时字幕由语音服务提供。'));
     setText('version',typeof s.version === 'string' ? '· ' + s.version : '');
     setText('diagnostic-text',typeof s.diagnosticSummary === 'string' ? s.diagnosticSummary : '暂无诊断摘要。');
+    renderLog(s);
     renderTranscript(s);
   }
   async function poll() {
@@ -319,6 +434,11 @@
   $('dial').addEventListener('click',() => command('dial'));
   $('hangup').addEventListener('click',() => command('hangup'));
   $('interrupt').addEventListener('click',() => command('interrupt'));
+  $('managed-check').addEventListener('click',() => command('check_managed_voice'));
+  $('managed-start').addEventListener('click',() => command('start_managed_voice',{},'正在自行启动 Codex 语音，无需点击桌面语音。'));
+  $('managed-stop').addEventListener('click',() => command('stop_managed_voice'));
+  $('managed-permissions').addEventListener('click',() => command('request_managed_audio'));
+  $('auto-answer-toggle').addEventListener('change',event => command('auto_answer',{enabled:event.target.checked,delaySeconds:Number($('auto-answer-delay').value),task:$('auto-answer-task').value}));
   $('answer-incoming').addEventListener('click',() => command('answer_incoming',{},'正在接听本任务选定的当前来电。'));
   $('permissions').addEventListener('click',() => command('request_permissions',{},'请完成 macOS 弹出的授权。'));
   $('prepare-builtin').addEventListener('click',() => command('prepare_builtin'));
@@ -331,7 +451,9 @@
   $('check-service').addEventListener('click',() => command('check_service'));
   $('cancel-service').addEventListener('click',() => command('cancel_service'));
   $('dismiss-feedback').addEventListener('click',() => feedback(''));
-  $('transcript').addEventListener('scroll',() => { const box = $('transcript'); followLatest = box.scrollHeight - box.scrollTop - box.clientHeight < 36; $('scroll-latest').hidden = followLatest; },{passive:true});
+  $('log-toggle').addEventListener('click',() => { logExpanded = !logExpanded; $('log-items').hidden = !logExpanded; $('log-toggle').setAttribute('aria-expanded',String(logExpanded)); renderLog(state || {}); });
+  $('transcript-toggle').addEventListener('click',() => { transcriptExpanded = !transcriptExpanded; followLatest = true; transcriptSignature = ''; renderTranscript(state || {}); });
+  $('transcript').addEventListener('scroll',() => { if (!transcriptExpanded) return; const box = $('transcript'); followLatest = box.scrollHeight - box.scrollTop - box.clientHeight < 36; $('scroll-latest').hidden = followLatest; },{passive:true});
   $('scroll-latest').addEventListener('click',() => { followLatest = true; $('transcript').scrollTop = $('transcript').scrollHeight; $('scroll-latest').hidden = true; });
   document.addEventListener('visibilitychange',() => { if (!document.hidden) poll(); });
   async function loop() { await poll(); setTimeout(loop,document.hidden ? 2500 : 700); }

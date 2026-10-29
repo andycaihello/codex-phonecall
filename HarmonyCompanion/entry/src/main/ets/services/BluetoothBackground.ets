@@ -13,11 +13,16 @@ export class BluetoothBackground {
   private static context: common.UIAbilityContext | undefined = undefined;
   static error: string = '';
 
-  static isActive(): boolean { return BluetoothBackground.running && !BluetoothBackground.stopping; }
+  // A failed system verification means we no longer have proof that the task
+  // can keep the phone awake. Retain the native ownership flag for a later
+  // explicit stop retry, but never report this state as ready for Mac control.
+  static isActive(): boolean {
+    return BluetoothBackground.running && !BluetoothBackground.stopping && BluetoothBackground.error === '';
+  }
   static async start(context: common.UIAbilityContext): Promise<boolean> {
     BluetoothBackground.cancelReconnectStop();
     if (BluetoothBackground.pending || BluetoothBackground.stopping) { return false; }
-    if (BluetoothBackground.running) { return true; }
+    if (BluetoothBackground.running) { return BluetoothBackground.error === ''; }
     const generation = ++BluetoothBackground.generation;
     BluetoothBackground.pending = true;
     BluetoothBackground.error = '';
@@ -69,6 +74,7 @@ export class BluetoothBackground {
       BluetoothBackground.running = false;
       BluetoothBackground.context = undefined;
       BluetoothBackground.stopping = false;
+      BluetoothBackground.error = '';
     }).catch((error: BusinessError) => {
       // Retain ownership on failure so an explicit Stop can retry release.
       BluetoothBackground.error = `background-stop-${error.code || 0}`;

@@ -52,9 +52,17 @@ import BridgeCore
         session.onLog = { [weak self] in self?.log($0) }
         session.waitForBluetoothReady = { [weak self] in
             guard let self else { throw BridgeError("通话桥已停止。") }
+            // A saved peer is revalidated by the native ACL/RFCOMM handshake.
+            // Avoid initializing the app process's private IOBluetooth device
+            // coordinator solely to enumerate already-known pairings: on this
+            // macOS build it can wait indefinitely while the CLI still works.
+            if self.session.phone != nil { return }
             if self.bluetooth.radioState == "未初始化" { self.bluetooth.refresh() }
             let until = ProcessInfo.processInfo.systemUptime + 12
-            while self.bluetooth.refreshing {
+            // A saved, paired phone can be verified by the native connection
+            // handshake once CoreBluetooth confirms the radio is on. Do not
+            // make a slow paired-device list refresh block that path.
+            while self.bluetooth.refreshing && self.bluetooth.radioState != "蓝牙已开启" {
                 try await Task.sleep(nanoseconds: 100_000_000)
                 guard ProcessInfo.processInfo.systemUptime < until else { throw BridgeError("Mac 蓝牙初始化尚未完成，请稍后重试。") }
             }
@@ -81,8 +89,10 @@ import BridgeCore
         refreshAudio()
         // Initialize the system Bluetooth coordinator before a short-lived
         // connection-preparation helper asks it for controller identity.
-        bluetooth.refresh()
-        log("PhoneBridge 0.7.9：后台通话服务与本地 Web 控制台。")
+        // Enumerate paired devices only when the user opens device selection.
+        // The selected phone configuration is loaded above and verified at
+        // connection time by the independent native Bluetooth process.
+        log("PhoneBridge 0.8.3：后台通话服务与本地 Web 控制台。")
         terminationObserver = NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification,
             object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
@@ -150,7 +160,7 @@ import BridgeCore
         let state = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(bluetooth.state))) ?? [:]
         let phones = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(bluetooth.devices))) ?? []
         let devices = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(audioDevices))) ?? []
-        return ["version": "0.7.9", "integratedSession": session.snapshot(),
+        return ["version": "0.8.3", "integratedSession": session.snapshot(),
             "captionWeb": ["url": captionWeb.url?.absoluteString ?? "", "error": captionWeb.error],
             "call": state, "callLabel": callLabel,
             "audioMode": audioMode.rawValue,
@@ -189,7 +199,7 @@ import BridgeCore
         switch action {
         case "plugin_console":
             guard let url = captionWeb.url else { throw BridgeError("控制台尚未就绪。") }
-            return ["consoleURL": url.absoluteString, "backendRunning": true, "version": "0.7.9"]
+            return ["consoleURL": url.absoluteString, "backendRunning": true, "version": "0.8.3"]
         case "plugin_status": return pluginCalls.status()
         case "plugin_prepare", "plugin_prepare_incoming":
             guard let duration = command["max_seconds"] as? NSNumber,
@@ -198,10 +208,12 @@ import BridgeCore
             }
             if action == "plugin_prepare_incoming" {
                 return try pluginCalls.prepareIncoming(task: string("task"), maximumSeconds: duration.intValue,
-                                                      codexThreadID: command["codex_thread_id"] as? String)
+                                                      codexThreadID: command["codex_thread_id"] as? String,
+                                                      mode: command["mode"] as? String ?? "builtin_voice")
             }
             return try pluginCalls.prepare(number: string("number"), task: string("task"), mode: string("mode"), maximumSeconds: duration.intValue,
                                            codexThreadID: command["codex_thread_id"] as? String)
+        case "plugin_prepare_managed": return try pluginCalls.prepareManaged(id: string("session_id"))
         case "plugin_answer": return try pluginCalls.answer(id: string("session_id"))
         case "plugin_start": return try pluginCalls.start(id: string("session_id"))
         case "plugin_prepare_builtin": return try pluginCalls.prepareBuiltin(id: string("session_id"))

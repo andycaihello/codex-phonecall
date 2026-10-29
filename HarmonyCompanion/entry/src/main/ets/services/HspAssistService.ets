@@ -12,7 +12,7 @@ class HspEvent {
 
 class HspDiagnostic {
   schema: number = 1;
-  appVersion: string = '0.4.7';
+  appVersion: string = '0.4.10';
   mode: string = 'hsp-listener';
   state: string = 'idle';
   active: boolean = false;
@@ -63,7 +63,7 @@ export class HspAssistService {
   // diagnostic build's six-minute absolute deadline. A verified Mac refreshes
   // this lease with every valid control heartbeat. The absolute 180-second
   // deadline remains in place for the standalone diagnostic modes.
-  private static readonly WIRELESS_IDLE_MS: number = 900000;
+  private static readonly WIRELESS_IDLE_MS: number = 8 * 60 * 60 * 1000;
   private static report: HspDiagnostic = new HspDiagnostic();
   private static expectedPeer: string = '';
   private static generation: number = 0;

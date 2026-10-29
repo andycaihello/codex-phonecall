@@ -39,6 +39,9 @@ struct Index {
   private updating: boolean = false;
   private generation: number = 0;
   private timer: number = -1;
+  private autoReady: boolean = false;
+  private nextAutoAttempt: number = 0;
+  private nextDeviceScan: number = 0;
 
   aboutToAppear(): void {
     this.visible = true;
@@ -48,7 +51,10 @@ struct Index {
       if (!this.visible) { return; }
       this.serviceMessage = text; this.active = active; this.updateStatus();
     });
-    try { this.selectedPeer = CompanionSettings.selectedPeer(this.context()); }
+    try {
+      this.selectedPeer = CompanionSettings.selectedPeer(this.context());
+      this.autoReady = CompanionSettings.autoReady(this.context());
+    }
     catch (error) { this.notice = '暂时无法读取已选设备，请重新选择。'; }
     this.refreshDevices();
     this.timer = setInterval(() => this.updateStatus(), 1000);
@@ -118,7 +124,14 @@ struct Index {
         this.notice = '此设备已不在配对列表中，请刷新后重新选择。'; return;
       }
       await CompanionSettings.selectPeer(this.context(), device.id);
-      if (this.visible && generation === this.generation) { this.selectedPeer = device.id; }
+      if (this.visible && generation === this.generation) {
+        if (this.selectedPeer !== device.id && WirelessControlService.isListening()) {
+          WirelessControlService.stop('已切换配对设备，正在重新准备蓝牙入口。');
+        }
+        this.selectedPeer = device.id;
+        this.autoReady = true;
+        this.nextAutoAttempt = 0;
+      }
     } catch (error) {
       if (this.visible && generation === this.generation) { this.notice = '设备选择未能保存，请重试。'; }
     } finally { if (generation === this.generation) { this.busy = false; } }
@@ -133,7 +146,21 @@ struct Index {
     return this.devices.some((row: DeviceRow) => row.id === this.selectedPeer);
   }
 
-  private async startSession(): Promise<void> {
+  private maybeAutoStart(): void {
+    if (!this.visible || this.busy || this.active ||
+      !this.permissionGranted || !this.bluetoothOn || !this.selectedAvailable() ||
+      Date.now() < this.nextAutoAttempt) { return; }
+    this.nextAutoAttempt = Date.now() + 7000;
+    if (WirelessControlService.isListening()) {
+      if (this.autoReady) { WirelessControlService.activateSession(); }
+    } else {
+      // A stopped call session still has a paired-only SPP wake entry while
+      // this app process exists. Mac can resume it without a phone tap.
+      WirelessControlService.start(this.context(), this.selectedPeer, this.autoReady);
+    }
+  }
+
+  private async startSession(automatic: boolean = false): Promise<void> {
     if (this.busy || this.active) { return; }
     const generation = this.generation;
     this.busy = true; this.notice = '';
@@ -148,11 +175,20 @@ struct Index {
       if (!this.visible || generation !== this.generation) { return; }
       if (state !== call.CallState.CALL_STATE_IDLE) { this.notice = '请先结束手机现有通话，再启动会话。'; return; }
       const helper = HspAssistService.wirelessStatus();
-      if (helper.active || helper.pendingConnect || !helper.cleanupSucceeded) {
-        this.notice = '上一连接仍在结束，请点击停止会话后重试。'; return;
+      if ((helper.active && !WirelessControlService.isListening()) ||
+        helper.pendingConnect || !helper.cleanupSucceeded) {
+        HspAssistService.stop('正在清理上次连接。');
+        this.notice = '上次连接正在清理；清理完成后自动重试。'; return;
       }
-      // No timer or foreground callback ever calls start: reconnect is explicit.
-      WirelessControlService.start(this.context(), peer);
+      if (!automatic) {
+        await CompanionSettings.setAutoReady(this.context(), true);
+        this.autoReady = true;
+      }
+      if (WirelessControlService.isListening()) {
+        if (!WirelessControlService.activateSession()) {
+          this.notice = '蓝牙唤起入口正在准备，请稍后重试。'; return;
+        }
+      } else { WirelessControlService.start(this.context(), peer); }
       this.updateStatus();
       if (!this.active) { this.notice = '会话未能启动，请查看连接状态后重试。'; }
     } catch (error) {
@@ -161,12 +197,15 @@ struct Index {
     } finally { if (generation === this.generation) { this.busy = false; } }
   }
 
-  private stopSession(): void {
-    WirelessControlService.stop('会话已停止。');
+  private async stopSession(): Promise<void> {
+    this.autoReady = false;
+    WirelessControlService.park('通话会话已停止；已配对 Mac 仍可通过蓝牙唤起。');
     this.updateStatus();
     this.notice = this.active || !this.cleanupReady
       ? '连接结束尚未确认，请再次点击停止会话。'
-      : '本次连接已结束。需要再次使用时，请点击启动会话。';
+      : '本次通话会话已结束；Mac 控制台仍可通过蓝牙启动下一轮。';
+    try { await CompanionSettings.setAutoReady(this.context(), false); }
+    catch (error) { this.notice = '停止自动准备设置未能保存。'; }
   }
 
   private updateStatus(): void {
@@ -182,8 +221,16 @@ struct Index {
     this.permissionGranted = this.hasPermission();
     try { this.bluetoothOn = this.permissionGranted && access.getState() === access.BluetoothState.STATE_ON; }
     catch (error) { this.bluetoothOn = false; }
-    if (this.active && (!this.permissionGranted || !this.bluetoothOn)) {
-      WirelessControlService.stop('蓝牙已不可用，会话已停止。'); return;
+    if (this.autoReady && this.bluetoothOn && this.selectedPeer.length > 0 &&
+      !this.selectedAvailable() && Date.now() >= this.nextDeviceScan) {
+      // Paired-device enumeration can lag behind Bluetooth startup. Refresh
+      // without a phone tap and retry listener startup on the next tick.
+      this.nextDeviceScan = Date.now() + 10000;
+      this.refreshDevices();
+    }
+    if (WirelessControlService.isListening() && (!this.permissionGranted || !this.bluetoothOn ||
+      !this.selectedAvailable())) {
+      WirelessControlService.stop('蓝牙或已选配对设备不可用，会话已停止。'); return;
     }
     if (!this.cleanupReady) { this.stage = '正在结束连接'; }
     else if (!this.active) { this.stage = '等待开始'; }
@@ -200,8 +247,8 @@ struct Index {
       else { this.callStatus = '通话状态未知'; }
     } catch (error) { this.callStatus = '暂时无法读取通话状态'; }
     this.updated = new Date().toLocaleTimeString();
-    ProbeState.report = `PhoneBridge: version=0.4.7; permission=${this.permissionGranted}; bluetooth=${this.bluetoothOn}; active=${this.active}; stage=${helper.state}; remaining=${this.remaining}; call=${this.callStatus}`;
-    } finally { this.updating = false; }
+    ProbeState.report = `PhoneBridge: version=0.4.10; permission=${this.permissionGranted}; bluetooth=${this.bluetoothOn}; active=${this.active}; stage=${helper.state}; remaining=${this.remaining}; call=${this.callStatus}`;
+    } finally { this.updating = false; this.maybeAutoStart(); }
   }
 
   private deviceOptions(): Array<SelectOption> {
@@ -230,7 +277,7 @@ struct Index {
 
   private sessionAction(): void {
     if (this.active || !this.cleanupReady) { this.stopSession(); }
-    else { this.startSession(); }
+    else { this.startSession(false); }
   }
 
   private sessionBadge(): string {
@@ -272,7 +319,7 @@ struct Index {
               .fontColor('#15213A').width('100%')
             Text(this.active
               ? '已验证的 Mac 会自动续期；失联后会安全结束。'
-              : '选择已配对的 Mac，然后启动通话桥。')
+              : '手机伴侣运行时保留已选 Mac 的蓝牙唤起入口；Mac 可启动下一轮会话。')
               .fontSize(14).fontColor('#697386').lineHeight(21).width('100%')
           }.width('100%')
 
@@ -360,7 +407,7 @@ struct Index {
           }.width('100%')
           Text(this.active
             ? '前台会话期间保持屏幕亮起，停止后恢复正常息屏。Mac 连接后会显示后台蓝牙通知。'
-            : '启动后保持此页面在前台，Mac 会自动完成控制连接。')
+            : '已选 Mac 的连接会在打开应用时自动准备；应用被系统终止后仍需重新打开。')
             .fontSize(14).fontColor('#697386').lineHeight(21).width('100%')
         }.padding(20).borderRadius(22).backgroundColor(Color.White).width('100%')
           .shadow({ radius: 18, color: '#120F1B2A', offsetX: 0, offsetY: 6 })
@@ -380,7 +427,7 @@ struct Index {
           }.width('100%').onClick(() => { this.diagnosticsExpanded = !this.diagnosticsExpanded; })
           if (this.diagnosticsExpanded) {
             Divider().color('#E7EAF0')
-            Text('版本 0.4.7 · ' + this.updated).fontSize(12).fontColor('#7A8598').width('100%')
+            Text('版本 0.4.10 · ' + this.updated).fontSize(12).fontColor('#7A8598').width('100%')
             Text(this.serviceMessage).fontSize(12).fontColor('#7A8598').width('100%')
             Text('连接阶段：' + this.helperState + '\n设备身份已核验：' +
               (this.peerVerified ? '是' : '否') + '\n上一连接已清理：' +

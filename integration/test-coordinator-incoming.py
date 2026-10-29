@@ -29,8 +29,8 @@ fake = fake.replace('FakeCounts.bluetooth += 1; return [:] }', '''FakeCounts.blu
 fake = fake.replace('func start() { FakeCounts.pcm += 1 }', 'func start() { FakeCounts.pcm += 1; running = true }', 1)
 source = (root / 'Sources/PhoneBridge/CallSessionCoordinator.swift').read_text() + '''
 @MainActor extension CallSessionCoordinator {
-    func incomingFixture() {
-        incomingMode=true; connectionIncoming=true; connected=true; mode = .builtinVoice
+    func incomingFixture(connectionIncoming: Bool = true) {
+        incomingMode=true; self.connectionIncoming=connectionIncoming; connected=true; mode = .builtinVoice
         phone=try! PhonePeerConfiguration(address:"AA:BB:CC:DD:EE:FF",name:"Offline Phone")
         state=["hfpAnchorMode":true,"hfpReady":true,"call":0,"setup":1,"held":0,
                "ownDial":false,"ownIncoming":false,"incomingAvailable":true,"incomingID":"1"]
@@ -71,6 +71,10 @@ main = '''
                 precondition(bt.requests.filter{$0 == "hangup"}.count == 1 && c.continuousVoice.active);checks += 1
             }
         }
+        let monitored=CallSessionCoordinator()
+        monitored.incomingFixture(connectionIncoming:false) // The same HFP link may have been opened for a scoped outgoing task.
+        precondition(monitored.connectedForCurrentNumber && monitored.bluetoothCallControlReady && monitored.incomingCallID == "1")
+        checks += 1
         precondition(FakeCounts.starts == 0 && FakeKeyState.count() == 0);checks += 1
         print("PASS: \\(checks) incoming coordinator checks; fake phone/audio, no USB or API")
     }

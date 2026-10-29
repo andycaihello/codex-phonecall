@@ -1,6 +1,6 @@
 {
   "name": "phonebridge",
-  "version": "0.7.9",
+  "version": "0.8.3",
   "description": "通过本机蓝牙通话桥发起电话、持续读取字幕，并在当前 Codex 对话协作。",
   "author": {
     "name": "Andy"
@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "通话桥 PhoneBridge",
     "shortDescription": "蓝牙电话、实时字幕与当前对话协作",
-    "longDescription": "通过已配对鸿蒙手机完成蓝牙拨号、双向电话音频与实时字幕，支持 Codex 内置连续语音及可选 OpenAI Realtime API。首次内置语音由用户在当前对话启动，后续可保持语音跨电话运行。需要本机通话桥、虚拟音频设备和手机伴侣。",
+    "longDescription": "通过已配对鸿蒙手机进行蓝牙拨号、接听和双向语音，双方字幕同步控制台与插件。可由通话桥自行启动独立 Codex 语音，无需点击桌面语音；也保留桌面内置连续语音和可选 OpenAI Realtime API。自动代接由机主在本地控制台主动开启，默认关闭，重启不恢复授权。自动语音仅接收本次明确任务，需要本机通话桥、已登录的官方 Codex 和手机伴侣。",
     "developerName": "Andy",
     "category": "Productivity",
     "capabilities": [
@@ -17,9 +17,10 @@
       "Write"
     ],
     "defaultPrompt": [
-      "用通话桥给我的测试手机打电话，使用当前对话的内置语音。",
+      "用通话桥给我的测试手机打电话，使用 Codex 自动语音，不需要手动启动桌面语音。",
       "用通话桥的 Realtime 模式打测试电话，并把字幕带回当前对话。",
-      "读取本次通话内容，整理结果和需要继续确认的事项。"
+      "读取本次通话内容，整理结果和需要继续确认的事项。",
+      "用通话桥接听当前来电，使用 Codex 自动语音，并记录对方来电目的。"
     ]
   },
   "mcpServers": "./.mcp.json"

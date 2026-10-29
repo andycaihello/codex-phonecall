@@ -2,8 +2,8 @@
   "app": {
     "bundleName": "cn.andy.phonebridge.companion",
     "vendor": "Andy",
-    "versionCode": 21,
-    "versionName": "0.4.9",
+    "versionCode": 22,
+    "versionName": "0.4.10",
     "icon": "$media:phonebridge_icon",
     "label": "$string:app_name"
   }

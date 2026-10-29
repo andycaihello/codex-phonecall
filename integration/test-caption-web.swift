@@ -15,9 +15,21 @@ import Darwin
         throw NSError(domain: "stub readiness timeout", code: 1)
     }
     static func main() async throws {
-        let incomingProjection = CaptionWebServer.safeSnapshot(["incomingMode":true,"incomingAvailable":true,"incomingID":"private-ring-token"])
-        try check(incomingProjection["incomingMode"] as? Bool == true && incomingProjection["incomingAvailable"] as? Bool == true && incomingProjection["incomingID"] == nil,
+        let incomingProjection = CaptionWebServer.safeSnapshot(["incomingMode":true,"incomingAvailable":true,"manualAnswerQueued":true,"incomingID":"private-ring-token"])
+        try check(incomingProjection["incomingMode"] as? Bool == true && incomingProjection["incomingAvailable"] as? Bool == true && incomingProjection["manualAnswerQueued"] as? Bool == true && incomingProjection["incomingID"] == nil,
                   "incoming controls expose readiness but not the private ring token")
+        let automatic = CaptionWebServer.safeSnapshot(["managedVoice":["ready":true,"installed":true,"token":"private"],
+            "autoAnswer":["enabled":false,"delaySeconds":2,"task":"fixture","session_id":"private"]])
+        let managed = automatic["managedVoice"] as! [String:Any], auto = automatic["autoAnswer"] as! [String:Any]
+        try check(managed["ready"] as? Bool == true && managed["token"] == nil && auto["session_id"] == nil && auto["enabled"] as? Bool == false,
+            "automatic voice state never exposes credentials or call capabilities")
+        let voiceHealth = CaptionWebServer.safeSnapshot(["managedVoice": ["health": [
+            "inputPCMBytes": 48000, "assistantFinals": 2, "problem": "user_turn_unfinalized", "rawAudio": "secret"]]])
+        let projectedHealth = (voiceHealth["managedVoice"] as? [String: Any])?["health"] as? [String: Any] ?? [:]
+        try check(projectedHealth["inputPCMBytes"] as? Int64 == 48000 && projectedHealth["problem"] as? String == "user_turn_unfinalized" && projectedHealth["rawAudio"] == nil,
+            "voice health exposes bounded counters without audio")
+        try check((CaptionWebServer.safeSnapshot(["autoAnswer":["delaySeconds":true]])["autoAnswer"] as? [String:Any])?["delaySeconds"] == nil,
+            "boolean cannot masquerade as autoanswer delay")
         try check(route(request()) == .state, "exact GET state accepted")
         try check(route(request("/secret/")) == .page, "exact page accepted")
         try check(route(request(method: "POST")) == .methodNotAllowed, "POST to read-only route rejected")
@@ -57,6 +69,11 @@ import Darwin
         let encodedText = String(data: encoded, encoding: .utf8)!
         try check(!encodedText.contains("secret") && (filtered["connected"] as? Bool) == true, "snapshot only includes selected fields")
         try check((filtered["transcript"] as? [[String: Any]])?.first?["final"] as? Bool == true, "final caption state preserved")
+        let logProjection = CaptionWebServer.safeSnapshot(["consoleEvents": ["连接设备 02:00:00:00:00:01", "号码 15500001111 已结束"],
+            "nativeEvents": ["never expose native data"]])
+        let visibleLog = logProjection["consoleEvents"] as? [String] ?? []
+        try check(visibleLog.count == 2 && visibleLog[0].contains("[设备]") && visibleLog[1].contains("[号码]") &&
+                  logProjection["nativeEvents"] == nil, "console log projection redacts identifiers and excludes native diagnostics")
         let console: [String: Any] = ["version":"0.4.0", "modeID":"builtin_voice", "number":"123456789", "instructions":"离线任务",
             "maximumSeconds":60, "voice":"marin", "cloudConsent":false, "keyConfigured":true, "pluginSessionActive":true,
             "pluginPhase":"prepared", "builtinVoiceConfirmed":true, "builtinRouteActive":true, "builtinRouteReady":true,
