@@ -13,6 +13,14 @@ static void handshake(HFP &h) {
     assert(h.takeWire(.12) == "AT+CMER=3,0,0,1\r"); feed(h, "OK\r\n", .13);
     assert(h.ready && h.idle() && !h.ownDial); assert(h.takeWire(.17).empty());
 }
+static void activeOutbound(HFP &h) {
+    handshake(h);
+    assert(h.enqueue("dial", "d", testNumber));
+    assert(h.takeWire(1) == "AT+CIND?\r"); feed(h, idle, 1.01);
+    assert(h.takeWire(1.1) == std::string("ATD") + testNumber + ";\r");
+    feed(h, "OK\r\n+CIEV: 3,2\r\n+CIEV: 2,1\r\n+CIEV: 3,0\r\n", 1.11);
+    assert(h.call == 1 && h.ownsCall());
+}
 static void refreshSoak(bool bytewise) {
     HFP h(testNumber); handshake(h); h.events.clear();
     for (unsigned i = 1; i <= 1000; ++i) {
@@ -48,6 +56,43 @@ static void refreshSoak(bool bytewise) {
 }
 int main() {
     unsigned cases = 0;
+    for (const auto &key : {"0", "1", "9", "*", "#"}) {
+        HFP h(testNumber); activeOutbound(h); h.events.clear();
+        assert(h.enqueue("dtmf", "k", "", 0, key));
+        assert(h.takeWire(2) == "AT+CIND?\r"); feed(h, "+CIND: 1,1,0,0,4\r\nOK\r\n", 2.01);
+        assert(h.takeWire(2.1) == std::string("AT+VTS=") + key + "\r");
+        assert(h.firstWriteAllowed(2.11)); feed(h, "OK\r\n", 2.12);
+        bool accepted = false;
+        for (const auto &event : h.events) {
+            if (event.kind == "at_command") assert(event.detail.find(key) == std::string::npos || event.detail == "AT+CIND?");
+            if (event.kind == "result" && event.id == "k") accepted = event.ok && event.detail == "menu_key_accepted_by_phone; remote_menu_effect_not_verified";
+        }
+        assert(accepted); ++cases;
+    }
+    { HFP h(testNumber); handshake(h); assert(!h.enqueue("dtmf", "idle", "", 0, "1")); assert(h.takeWire(2).empty()); ++cases; }
+    for (const auto &key : {"", "12", "A", ";", "\r", "１"}) {
+        HFP h(testNumber); activeOutbound(h); assert(!h.enqueue("dtmf", "bad", "", 0, key)); assert(h.takeWire(2).empty()); ++cases;
+    }
+    { HFP h(testNumber); activeOutbound(h); assert(h.enqueue("dtmf", "k", "", 0, "4"));
+      assert(h.takeWire(2) == "AT+CIND?\r"); feed(h, idle, 2.01);
+      assert(h.takeWire(2.1).empty()); ++cases; }
+    { HFP h(testNumber); activeOutbound(h); assert(h.enqueue("dtmf", "k", "", 0, "4"));
+      assert(h.takeWire(2) == "AT+CIND?\r"); feed(h, "+CIND: 1,1,0,0,4\r\nOK\r\n", 2.01);
+      assert(h.takeWire(2.1) == "AT+VTS=4\r"); feed(h, "+CIEV: 2,0\r\n", 2.11);
+      assert(!h.firstWriteAllowed(2.12)); h.cancelUnwrittenControl(); ++cases; }
+    { HFP h(testNumber); activeOutbound(h); assert(h.enqueue("dtmf", "k", "", 0, "4"));
+      assert(h.enqueue("hangup", "end")); assert(h.takeWire(2) == "AT+CIND?\r");
+      feed(h, "+CIND: 1,1,0,0,4\r\nOK\r\n", 2.01);
+      assert(h.takeWire(2.1) == "AT+CHUP\r"); ++cases; }
+    { HFP h(testNumber); activeOutbound(h); assert(h.enqueue("dtmf", "k", "", 0, "4"));
+      assert(h.takeWire(2) == "AT+CIND?\r"); assert(h.enqueue("hangup", "end"));
+      feed(h, "+CIND: 1,1,0,0,4\r\nOK\r\n", 2.01);
+      assert(h.takeWire(2.1) == "AT+CIND?\r"); feed(h, "+CIND: 1,1,0,0,4\r\nOK\r\n", 2.11);
+      assert(h.takeWire(2.2) == "AT+CHUP\r"); ++cases; }
+    { HFP h(testNumber); activeOutbound(h); assert(h.enqueue("dtmf", "k", "", 0, "4"));
+      assert(h.takeWire(2) == "AT+CIND?\r"); h.beginStop();
+      feed(h, "+CIND: 1,1,0,0,4\r\nOK\r\n", 2.01);
+      assert(h.takeWire(2.1).empty()); ++cases; }
     { HFP unconfigured; handshake(unconfigured);
       assert(!unconfigured.enqueue("dial", "no-default", testNumber));
       assert(unconfigured.takeWire(1).empty() && !unconfigured.ownDial); ++cases; }

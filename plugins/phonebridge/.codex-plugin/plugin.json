@@ -1,6 +1,6 @@
 {
   "name": "phonebridge",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "description": "通过本机蓝牙通话桥发起电话、持续读取字幕，并在当前 Codex 对话协作。",
   "author": {
     "name": "Andy"
@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "通话桥 PhoneBridge",
     "shortDescription": "蓝牙电话、实时字幕与当前对话协作",
-    "longDescription": "通过已配对鸿蒙手机进行蓝牙拨号、接听和双向语音，双方字幕同步控制台与插件。可由通话桥自行启动独立 Codex 语音，无需点击桌面语音；也保留桌面内置连续语音和可选 OpenAI Realtime API。自动代接由机主在本地控制台主动开启，默认关闭，重启不恢复授权。自动语音仅接收本次明确任务，需要本机通话桥、已登录的官方 Codex 和手机伴侣。",
+    "longDescription": "通过已配对鸿蒙手机进行蓝牙拨号、接听、通话中菜单按键和双向语音，双方字幕同步控制台与插件。可由通话桥自行启动独立 Codex 语音，无需点击桌面语音；也保留桌面内置连续语音和可选 OpenAI Realtime API。自动代接由机主在本地控制台主动开启，默认关闭，重启不恢复授权。自动语音仅接收本次明确任务，需要本机通话桥、已登录的官方 Codex 和手机伴侣。",
     "developerName": "Andy",
     "category": "Productivity",
     "capabilities": [

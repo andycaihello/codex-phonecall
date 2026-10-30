@@ -92,7 +92,7 @@ import BridgeCore
         // Enumerate paired devices only when the user opens device selection.
         // The selected phone configuration is loaded above and verified at
         // connection time by the independent native Bluetooth process.
-        log("PhoneBridge 0.8.3：后台通话服务与本地 Web 控制台。")
+        log("PhoneBridge 0.8.4：后台通话服务与本地 Web 控制台。")
         terminationObserver = NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification,
             object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
@@ -160,7 +160,7 @@ import BridgeCore
         let state = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(bluetooth.state))) ?? [:]
         let phones = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(bluetooth.devices))) ?? []
         let devices = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(audioDevices))) ?? []
-        return ["version": "0.8.3", "integratedSession": session.snapshot(),
+        return ["version": "0.8.4", "integratedSession": session.snapshot(),
             "captionWeb": ["url": captionWeb.url?.absoluteString ?? "", "error": captionWeb.error],
             "call": state, "callLabel": callLabel,
             "audioMode": audioMode.rawValue,
@@ -199,7 +199,7 @@ import BridgeCore
         switch action {
         case "plugin_console":
             guard let url = captionWeb.url else { throw BridgeError("控制台尚未就绪。") }
-            return ["consoleURL": url.absoluteString, "backendRunning": true, "version": "0.8.3"]
+            return ["consoleURL": url.absoluteString, "backendRunning": true, "version": "0.8.4"]
         case "plugin_status": return pluginCalls.status()
         case "plugin_prepare", "plugin_prepare_incoming":
             guard let duration = command["max_seconds"] as? NSNumber,
@@ -221,6 +221,7 @@ import BridgeCore
         case "plugin_restore_audio": return try pluginCalls.restoreAudio(id: string("session_id"))
         case "plugin_end": return try pluginCalls.end(id: string("session_id"))
         case "plugin_steer": return try pluginCalls.steer(id: string("session_id"), instruction: string("instruction"))
+        case "plugin_press_key": return try pluginCalls.pressKey(id: string("session_id"), key: string("key"))
         case "plugin_read":
             guard let cursor = command["cursor"] as? NSNumber,
                   CFGetTypeID(cursor) != CFBooleanGetTypeID(), cursor.doubleValue == Double(cursor.intValue) else {

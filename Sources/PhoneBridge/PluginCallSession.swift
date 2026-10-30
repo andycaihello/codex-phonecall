@@ -25,6 +25,9 @@ final class PluginCallSession: ObservableObject {
     private var lastState = ""
     private var lastSavedSequence = -1
     private var operation: Task<Void, Never>?
+    private var menuKeyTask: Task<Void, Never>?
+    private var menuKeyTaskID: UUID?
+    var menuKeyPending: Bool { menuKeyTask != nil }
     private var observer: Task<Void, Never>?
     private var started = false
     private var disconnectAfterVoiceRestore = false
@@ -70,7 +73,7 @@ final class PluginCallSession: ObservableObject {
     }
 
     func status() -> [String: Any] {
-        ["version": "0.8.3", "appRunning": true, "phoneConfigured": session.phone != nil,
+        ["version": "0.8.4", "appRunning": true, "phoneConfigured": session.phone != nil,
          "phoneConnected": session.connected, "phoneBusy": session.callActive || session.callPending || session.busy,
          "sessionReserved": identifier != nil && (!terminal || session.builtinRoute.active),
          "modes": ["builtin_voice", "openai_realtime", "codex_voice"],
@@ -354,7 +357,7 @@ final class PluginCallSession: ObservableObject {
     func end(id: String) throws -> [String: Any] {
         try own(id)
         if terminal && !session.busy { return readCurrent(after: sequence) }
-        generation = UUID(); operation?.cancel(); operation = nil
+        generation = UUID(); operation?.cancel(); operation = nil; menuKeyTask?.cancel(); menuKeyTask = nil; menuKeyTaskID = nil
         phase = "ending"; append("state", ["phase": phase])
         // A completed call does not end the paired Bluetooth session. Keep a
         // fully prepared control link alive so the phone's background task and
@@ -380,6 +383,46 @@ final class PluginCallSession: ObservableObject {
         voiceContext = session.instructions
         append("owner_instruction", ["text": instruction, "delivery": "queued_to_voice_session"])
         return readCurrent(after: sequence - 1)
+    }
+    func pressKey(id: String, key: String) throws -> [String: Any] {
+        try own(id)
+        try queueMenuKey(key, ownedBy: id)
+        return readCurrent(after: sequence - 1)
+    }
+    func pressKeyFromConsole(_ key: String) throws {
+        try queueMenuKey(key, ownedBy: identifier != nil && !terminal ? identifier : nil)
+    }
+    private func queueMenuKey(_ key: String, ownedBy owner: String?) throws {
+        guard key.utf8.count == 1, let digit = key.utf8.first,
+              (48...57).contains(digit) || digit == 42 || digit == 35 else {
+            throw BridgeError("菜单按键只能是 0–9、* 或 #。")
+        }
+        guard menuKeyTask == nil else { throw BridgeError("上一个菜单按键仍在发送，请等待结果。") }
+        guard session.bluetoothCallControlReady, session.ownsActiveCall, !session.phoneStateUnknown,
+              owner == nil || (!terminal && started && phase == "in_call") else {
+            throw BridgeError("当前电话未接通或不属于此通话任务，未发送按键。")
+        }
+        if session.error.hasPrefix("菜单按键未确认：") { session.error = "" }
+        if owner != nil { append("menu_key", ["status": "sending", "detail": "正在发送一个菜单按键；按键内容不记录。"]); save() }
+        let run = generation
+        let requestID = UUID(); menuKeyTaskID = requestID
+        menuKeyTask = Task { [weak self] in
+            guard let self else { return }
+            defer { if self.menuKeyTaskID == requestID { self.menuKeyTask = nil; self.menuKeyTaskID = nil } }
+            do {
+                try await self.session.pressMenuKey(key)
+                if self.generation == run, owner != nil {
+                    self.append("menu_key", ["status": "phone_accepted", "detail": "手机已接受按键；对方电话菜单是否响应需继续听取。"])
+                    self.save()
+                }
+            } catch {
+                if self.generation == run {
+                    let message = error.localizedDescription
+                    self.session.error = "菜单按键未确认：" + message
+                    if owner != nil { self.append("menu_key", ["status": "failed", "detail": message]); self.save() }
+                }
+            }
+        }
     }
     func read(id: String, after cursor: Int) throws -> [String: Any] {
         guard cursor >= 0 else { throw BridgeError("字幕游标无效。") }

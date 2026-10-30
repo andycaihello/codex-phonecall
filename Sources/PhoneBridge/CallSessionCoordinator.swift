@@ -108,6 +108,19 @@ final class CallSessionCoordinator: ObservableObject {
         readOnlyProbeInterval == nil && connectedForCurrentNumber && state["hfpAnchorMode"] as? Bool == true && state["hfpReady"] as? Bool == true
     }
     var ownsActiveCall: Bool { (ownDial || ownIncoming || systemDialInFlight) && callActive }
+    func pressMenuKey(_ key: String) async throws {
+        guard key.utf8.count == 1, let digit = key.utf8.first,
+              (48...57).contains(digit) || digit == 42 || digit == 35 else {
+            throw BridgeError("菜单按键只能是 0–9、* 或 #。")
+        }
+        guard bluetoothCallControlReady, ownsActiveCall, !phoneStateUnknown, !ending,
+              state["call"] as? Int == 1, state["setup"] as? Int == 0,
+              state["held"] as? Int == 0 else {
+            throw BridgeError("当前没有可确认的蓝牙通话；未发送菜单按键。")
+        }
+        _ = try await bluetooth.request("dtmf", fields: ["key": key], timeout: 10)
+        log("手机已接受一个电话菜单按键；对方菜单是否响应需听后确认。")
+    }
     private var voiceServiceCheckID: UUID?
     private var voiceServiceCheckDeadline: Task<Void, Never>?
     private var voiceServiceCheckFinishing = false

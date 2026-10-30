@@ -70,7 +70,7 @@ PhoneBridge 由 Codex 插件、Mac 后台程序和 HarmonyOS 手机伴侣组成�
 
 ## 呼出、手动接听与自动代接
 
-0.8.3 支持通话桥自行启动**独立 Codex 自动语音**，无需手动点击当前桌面对话的语音按钮。机主给出号码和目的后，插件先准备蓝牙与语音，再拨号。连接手机后会监听来电；响铃时控制台预热语音，机主可点「接听当前来电」，只接听这一次响铃。另有「开启本次待命」自动代接开关，**默认关闭，应用重启后也不恢复**。预热和通话可能使用 Codex 语音额度。
+0.8.4 支持通话桥自行启动**独立 Codex 自动语音**，无需手动点击当前桌面对话的语音按钮。机主给出号码和目的后，插件先准备蓝牙与语音，再拨号。连接手机后会监听来电；响铃时控制台预热语音，机主可点「接听当前来电」，只接听这一次响铃。另有「开启本次待命」自动代接开关，**默认关闭，应用重启后也不恢复**。预热和通话可能使用 Codex 语音额度。
 
 2026-10-29 在开发者设备上完成真实呼出和手动接听回归：尾号 7002 的呼出电话进行了多轮双向语音，对方确认听清，双方字幕同步；测试结束后 `phoneIdleVerified: true`。机主随后在控制台手动接听同一测试号码呼入，确认声音与双方字幕均正常，通话结束后手机空闲、蓝牙仍连接。自动代接此前也完成过一通受控实机验证。**这些结果不等于任意手机、长时间锁屏待机或连续多位来电者均已通过。**
 
@@ -86,8 +86,8 @@ PhoneBridge 由 Codex 插件、Mac 后台程序和 HarmonyOS 手机伴侣组成�
 
 | 组件 | 当前版本 | 作用 |
 | --- | --- | --- |
-| Mac 后台程序 | 0.8.3 | 蓝牙控制、音频编排、本地 Web 控制台与字幕 |
-| Codex 插件 | 0.8.3 | 向 Codex 提供 14 个电话工具及使用技能 |
+| Mac 后台程序 | 0.8.4 | 蓝牙控制、音频编排、本地 Web 控制台、菜单按键与字幕 |
+| Codex 插件 | 0.8.4 | 向 Codex 提供 15 个电话工具及使用技能 |
 | HarmonyOS 手机伴侣 | 0.4.10 | 配对电脑选择、蓝牙待命服务与会话管理 |
 | Mac 虚拟音频驱动 | 0.1.1 | 仅供旧的桌面内置连续语音路径使用 |
 
@@ -134,7 +134,7 @@ python3 integration/continuous-audio/build-drivers.py
 python3 integration/continuous-audio/package-preview.py
 ```
 
-主程序位于 `dist/PhoneBridge.app`。如执行可选打包步骤，文件位于 `dist/PhoneBridge-Continuous-0.8.3/`：
+主程序位于 `dist/PhoneBridge.app`。如执行可选打包步骤，文件位于 `dist/PhoneBridge-Continuous-0.8.4/`：
 
 - `PhoneBridge.app`：Mac 后台程序。
 - `PhoneBridge-Continuous-Audio-0.1.1.pkg`：虚拟音频驱动安装包。
@@ -146,7 +146,7 @@ mkdir -p "$HOME/Applications"
 ditto dist/PhoneBridge.app "$HOME/Applications/PhoneBridge.app"
 
 # 仅使用旧桌面连续语音时，才安装可选的虚拟音频驱动。
-open dist/PhoneBridge-Continuous-0.8.3/PhoneBridge-Continuous-Audio-0.1.1.pkg
+open dist/PhoneBridge-Continuous-0.8.4/PhoneBridge-Continuous-Audio-0.1.1.pkg
 ```
 
 如选择安装虚拟驱动，在系统界面完成管理员验证。驱动安装到 `/Library/Audio/Plug-Ins/HAL/`，安装结束会重载系统音频，**会暂时中断正在进行的声音和语音聊天**，请在空闲时安装。两个设备为 `PhoneBridge Voice Input` 和 `PhoneBridge Voice Output`；Codex 自动语音不依赖它们。
@@ -223,6 +223,7 @@ Codex 会检查后端，通过 `phonebridge_open_console` 获取本地网页，�
 - **手动接听**：手机已连接时，来电会在控制台显示；点「接听当前来电」，等本轮独立语音就绪后只接听当前这一通。响铃消失不会转而接下一通。
 - **自动代接**：在控制台设置等待时间和任务，再主动开启「本次待命」；默认关闭，重启不恢复。仅在你确实希望待命期间所有来电被自动接听时开启。
 - **通话中补充**：在发起电话的同一 Codex 对话输入补充要求。每个电话固定一个被授权号码，换号要建立新任务。
+- **电话语音菜单**：听到“按 1 查询”等提示后，可在控制台通话中的数字键盘点一个 `0–9`、`*` 或 `#`，也可让 Codex 在当前通话任务里发送该按键。每次等待下一段语音再继续；按键被手机接受不代表对方菜单已响应。
 - **结束**：「结束这通电话，并确认手机已挂断。」
 - **总结**：「整理刚才的通话，列出对方答复和未确认事项。」
 - **打开界面**：「把通话桥控制台打开在右边。」本地地址由工具返回，不要收藏别人机器上的 `127.0.0.1` 地址。
@@ -284,4 +285,4 @@ docs/                           架构、故障排查和验收说明
 
 欢迎通过 Issue 和 PR 参与，尤其是其他平台后端、第二套硬件验收和安装体验改进。开始前阅读 [贡献指南](CONTRIBUTING.md)、[社区准则](CODE_OF_CONDUCT.md) 和 [路线图](docs/ROADMAP.md)。漏洞或隐私问题请按 [安全政策](SECURITY.md) 私下报告。
 
-历史 GitHub Release `v0.7.7-preview` 是早期源码预览；本 README 描述当前 `main` 的 0.8.3 源码。仓库仍不提供可通用安装的手机签名包或已公证 Mac 安装包。[更新记录](CHANGELOG.md)。
+历史 GitHub Release `v0.7.7-preview` 是早期源码预览；本 README 描述当前 `main` 的 0.8.4 源码。仓库仍不提供可通用安装的手机签名包或已公证 Mac 安装包。[更新记录](CHANGELOG.md)。

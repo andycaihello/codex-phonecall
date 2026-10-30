@@ -65,6 +65,16 @@ class FakeBackend(server.LocalBackend):
 
 
 class ToolTests(unittest.TestCase):
+    def test_menu_key_scope_and_validation(self):
+        self.assertEqual(server.ACTIONS["phonebridge_press_key"], "plugin_press_key")
+        for key in "0123456789*#":
+            self.assertEqual(server.validate_tool("phonebridge_press_key", {"session_id": SID, "key": key}), {"session_id": SID, "key": key})
+        for key in ("", "12", "A", "１", "\r", 1, True):
+            with self.subTest(key=key), self.assertRaises(server.InvalidParams):
+                server.validate_tool("phonebridge_press_key", {"session_id": SID, "key": key})
+        for fields in ({"key": "1"}, {"session_id": SID, "key": "1", "number": "10010"}):
+            with self.assertRaises(server.InvalidParams):
+                server.validate_tool("phonebridge_press_key", fields)
     def test_prepare_defaults_and_number_scope(self):
         for number in ["13800000000", "10010", "+8613800000000", "123", "1" * 15]:
             with self.subTest(number=number):
@@ -140,6 +150,8 @@ class ToolTests(unittest.TestCase):
                 arguments = {"number": "10010", "task": "test"}
             elif name == "phonebridge_steer_call":
                 arguments["instruction"] = "owner requested clarification"
+            elif name == "phonebridge_press_key":
+                arguments["key"] = "1"
             args = server.validate_tool(name, arguments)
             mcp.invoke_tool(name, args, threading.Event())
             self.assertEqual(backend.calls[-1]["action"], action)
@@ -176,7 +188,7 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(len(backend.calls), count)
 
     def test_annotations_and_user_attestation(self):
-        self.assertEqual(len(server.TOOLS), 14)
+        self.assertEqual(len(server.TOOLS), 15)
         self.assertTrue(server.BY_NAME["phonebridge_read_call"]["annotations"]["readOnlyHint"])
         self.assertTrue(server.BY_NAME["phonebridge_start_call"]["annotations"]["openWorldHint"])
         self.assertIn("spoken greeting", server.BY_NAME["phonebridge_start_call"]["description"])
@@ -281,7 +293,7 @@ class ProtocolTests(unittest.TestCase):
         self.init(); self.request(1, "tools/list"); self.request(2, "ping"); self.request(3, "execute_shell")
         rows = self.out.rows()
         self.assertEqual(rows[1]["result"]["protocolVersion"], "2025-06-18")
-        self.assertEqual(len(rows[2]["result"]["tools"]), 14)
+        self.assertEqual(len(rows[2]["result"]["tools"]), 15)
         self.assertEqual(rows[3]["result"], {})
         self.assertEqual(rows[4]["error"]["code"], -32601)
         self.assertEqual(self.backend.calls, [])

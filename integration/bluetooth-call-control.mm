@@ -38,15 +38,17 @@ static NSString *validateRequest(id object) {
     if ([r[@"id"] hasPrefix:@"cleanup-"]) return @"reserved_id_prefix";
     NSString *op = r[@"op"];
     NSArray *ops = @[@"helper_connect", @"helper_status", @"helper_start_session", @"helper_exchange", @"helper_audio", @"helper_dial_ui", @"helper_stop", @"open_hsp", @"hsp_audio", @"close_hsp",
-        @"connect", @"connect_hfp_anchor", @"status", @"refresh", @"dial", @"answer", @"hangup", @"disconnect", @"stop"];
+        @"connect", @"connect_hfp_anchor", @"status", @"refresh", @"dial", @"answer", @"dtmf", @"hangup", @"disconnect", @"stop"];
     if (![op isKindOfClass:NSString.class] || ![ops containsObject:op]) return @"invalid_operation";
     NSSet *keys = [NSSet setWithArray:r.allKeys];
     BOOL numberedOperation = [op isEqualToString:@"dial"] || [op isEqualToString:@"helper_dial_ui"];
     BOOL answering = [op isEqualToString:@"answer"];
+    BOOL menuKey = [op isEqualToString:@"dtmf"];
     if (incomingOnly && numberedOperation) return @"incoming_only; dial_not_allowed";
     if (answering && !matches(r[@"incoming_id"], @"^[1-9][0-9]{0,14}$")) return @"invalid_incoming_id";
-    NSSet *expected = [NSSet setWithArray:numberedOperation ? @[@"id", @"op", @"number"] : answering ? @[@"id", @"op", @"incoming_id"] : @[@"id", @"op"]];
+    NSSet *expected = [NSSet setWithArray:numberedOperation ? @[@"id", @"op", @"number"] : answering ? @[@"id", @"op", @"incoming_id"] : menuKey ? @[@"id", @"op", @"key"] : @[@"id", @"op"]];
     if (![keys isEqualToSet:expected]) return @"unexpected_or_missing_fields";
+    if (menuKey && (![r[@"key"] isKindOfClass:NSString.class] || !phonebridge::validMenuKey([r[@"key"] UTF8String] ?: ""))) return @"invalid_menu_key";
     if (numberedOperation) {
         NSString *n = r[@"number"];
         if (![n isKindOfClass:NSString.class] || !phonebridge::validDialNumber(n.UTF8String ?: "") || permittedDialNumber != (n.UTF8String ?: "")) return @"number_not_allowlisted";
@@ -225,10 +227,10 @@ static NSDictionary *uintElement(int n, int bytes) { return @{@"DataElementType"
     }
     if (![self live:@"hfp"]) { [self result:rid ok:NO detail:@"HFP_channel_not_open"]; return; }
     BTSlot *control = [self live:@"hfp"];
-    if ([op isEqualToString:@"hangup"] && control.tx.length && !control.txStarted && (hfp.pendingKind() == "dial" || hfp.pendingKind() == "answer")) {
+    if ([op isEqualToString:@"hangup"] && control.tx.length && !control.txStarted && (hfp.pendingKind() == "dial" || hfp.pendingKind() == "answer" || hfp.pendingKind() == "dtmf")) {
         [control.tx setLength:0]; hfp.cancelUnwrittenControl();
     }
-    hfp.enqueue(op.UTF8String, rid.UTF8String, [r[@"number"] UTF8String] ?: "", [r[@"incoming_id"] longLongValue]);
+    hfp.enqueue(op.UTF8String, rid.UTF8String, [r[@"number"] UTF8String] ?: "", [r[@"incoming_id"] longLongValue], [r[@"key"] UTF8String] ?: "");
 }
 - (BOOL)verifyPhone {
     return self.device && self.device.isPaired && [normalizedAddress(self.device.addressString) isEqualToString:phoneAddress] && [self.device.name isEqualToString:phoneName];

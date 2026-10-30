@@ -32,6 +32,7 @@ struct ConversationLine: Identifiable {
     var bluetoothCallControlReady: Bool { connected && connectedForCurrentNumber }
     var callActive = false, callPending = false, voiceActive = false
     var ownsActiveCall = false, phoneStateUnknown = false
+    var sentMenuKeys: [String] = []
     let managedVoice = FakeManagedVoice()
     let managedMicrophone = FakeManagedMicrophone()
     var failManagedPrepare=false
@@ -83,6 +84,11 @@ struct ConversationLine: Identifiable {
         restores += 1; builtinRoute.active = false; builtinVoiceConfirmed = false
     }
     func steerConversation(_ instruction: String) throws { steers.append(instruction) }
+    func pressMenuKey(_ key: String) async throws {
+        guard ownsActiveCall, callActive else { throw BridgeError("fixture call not active") }
+        try await Task.sleep(nanoseconds: 40_000_000)
+        sentMenuKeys.append(key)
+    }
     func checkVoiceService() { checks += 1; voiceServiceChecking = deferVoiceCheck }
     func snapshot() -> [String: Any] { ["voiceServiceCheck": ["ok": voiceCheckOK], "bluetoothState":["idleVerified":!callActive && !callPending,"ownIncoming":ownsActiveCall,"ownDial":false]] }
     func log(_ message: String) {}
@@ -150,10 +156,21 @@ private struct PluginChecks {
             s.builtinRoute.ready = false
             check(fails { _ = try p.confirmBuiltin(id: id) }, "invalid route cannot receive new voice attestation")
             s.builtinRoute.ready = true; _ = try p.confirmBuiltin(id: id)
-            _ = try p.start(id: id); _ = try p.start(id: id); await pump(); _ = try p.start(id: id)
+            _ = try p.start(id: id); _ = try p.start(id: id); await pump(); _ = try p.start(id: id); _ = try p.read(id: id, after: 0)
             check(s.dials == 1, "start retries before and after task execution dial exactly once")
+            check(fails { _ = try p.pressKey(id: other, key: "1") }, "foreign session cannot press a menu key")
+            _ = try p.pressKey(id: id, key: "1")
+            check(fails { _ = try p.pressKey(id: id, key: "2") }, "another menu key waits for the first result")
+            try? await Task.sleep(nanoseconds: 80_000_000)
+            let menuEvents = (try p.read(id: id, after: 0)["events"] as? [[String: Any]]) ?? []
+            check(s.sentMenuKeys == ["1"] && menuEvents.contains(where: { $0["status"] as? String == "phone_accepted" }),
+                  "active owned call sends one key and reports phone acceptance")
+            check(!menuEvents.contains(where: { ($0["detail"] as? String ?? "").contains("AT+VTS=1") }),
+                  "menu key bytes are absent from call events")
             check(fails { _ = try p.restoreAudio(id: id) } && s.restores == 0, "active call cannot restore audio")
             _ = try p.end(id: id); let ended = try p.read(id: id, after: 0)
+            check(fails { _ = try p.pressKey(id: id, key: "2") } && s.sentMenuKeys == ["1"],
+                  "ended call cannot accept a later menu key")
             check(ended["terminal"] as? Bool == true && s.hangups == 1 && s.builtinRoute.active && s.restores == 0,
                   "builtin hangup retains audio until explicit voice-stop acknowledgement")
             check(fails { _ = try prepare(p) }, "held audio keeps cross-conversation lease reserved")

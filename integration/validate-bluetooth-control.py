@@ -41,12 +41,15 @@ ops = ['helper_connect','helper_status','helper_exchange','helper_audio','helper
 cases = [(dict(id='test', op=op), True) for op in ops]
 cases += [(dict(id='dial', op='dial', number=number), True)]
 cases += [(dict(id='dial-ui', op='helper_dial_ui', number=number), True)]
+cases += [(dict(id='menu', op='dtmf', key=key), True) for key in '0123456789*#']
 cases += [(v, False) for v in [
     [], {}, {'id':'','op':'status'}, {'id':'x\n','op':'status'}, {'id':'x'*65,'op':'status'},
     {'id':'cleanup-reserved','op':'status'}, {'id':'x','op':'ATD'}, {'id':'x','op':'status','number':number},
     {'id':'x','op':'dial'}, {'id':'x','op':'dial','number':7002}, {'id':'x','op':'dial','number':'7002'},
     {'id':'x','op':'dial','number':number+'\rAT+CHUP'}, {'id':'x','op':'dial','number':'10010'},
     {'id':'x','op':'status','extra':False},
+    {'id':'x','op':'dtmf'}, {'id':'x','op':'dtmf','key':'12'}, {'id':'x','op':'dtmf','key':'A'},
+    {'id':'x','op':'dtmf','key':'\rAT+CHUP'}, {'id':'x','op':'dtmf','key':1},
 ]]
 result = run(['--validate-commands', '--allow-number', number], ''.join(json.dumps(v)+'\n' for v,_ in cases))
 assert result.returncode == 0

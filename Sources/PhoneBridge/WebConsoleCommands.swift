@@ -37,7 +37,7 @@ private struct ConsoleSettings: Codable {
         }
         // A separate projection avoids exposing native logs, credentials, call
         // lease IDs, audio data or private diagnostic paths to the page.
-        return ["version": "0.8.3", "backendRunning": true,
+        return ["version": "0.8.4", "backendRunning": true,
             "status": session.status, "captionWarning": session.captionWarning, "error": lastError.isEmpty ? session.error : lastError,
             "captionSource": session.usesCodexCaptions ? "codex_transcript" : "apple_speech",
             "codexCaptions": session.codexCaptions.snapshot,
@@ -54,6 +54,8 @@ private struct ConsoleSettings: Codable {
             "phoneStateUnknown": session.phoneStateUnknown, "dialerStage": session.dialerStage,
             "bluetoothCallControlReady": session.bluetoothCallControlReady, "dialTransport": "bluetooth_hfp",
             "callActive": session.callActive, "callPending": session.callPending, "voiceActive": session.voiceActive,
+            "menuKeyReady": session.bluetoothCallControlReady && session.ownsActiveCall && !session.phoneStateUnknown,
+            "menuKeyPending": pluginCalls.menuKeyPending,
             "number": session.number, "instructions": session.instructions,
             "maximumSeconds": session.maximumSeconds, "voice": session.voice.rawValue,
             "cloudConsent": session.cloudConsent, "keyConfigured": session.keyConfigured,
@@ -238,6 +240,8 @@ private struct ConsoleSettings: Codable {
                 try saveConsoleSettings()
             case "answer_incoming":
                 try pluginCalls.answerFromConsole()
+            case "press_key":
+                try pluginCalls.pressKeyFromConsole(try string("key"))
             case "dial":
                 if session.mode == .codexManaged, session.pluginSessionActive {
                     try pluginCalls.startManagedFromConsole(); break
