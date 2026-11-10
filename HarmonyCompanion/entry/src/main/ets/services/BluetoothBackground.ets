@@ -75,8 +75,24 @@ export class BluetoothBackground {
       BluetoothBackground.context = undefined;
       BluetoothBackground.stopping = false;
       BluetoothBackground.error = '';
-    }).catch((error: BusinessError) => {
-      // Retain ownership on failure so an explicit Stop can retry release.
+    }).catch(async (error: BusinessError) => {
+      // A task may have already been removed by HarmonyOS while the process
+      // survives. Verify native ownership before retaining a stale flag.
+      try {
+        const tasks = await backgroundTaskManager.getAllContinuousTasks(BluetoothBackground.context!);
+        const ours = tasks.filter((task) => task.abilityName === 'EntryAbility' &&
+          task.backgroundModes.includes('bluetoothInteraction'));
+        if (ours.length === 0) {
+          BluetoothBackground.running = false;
+          BluetoothBackground.context = undefined;
+          BluetoothBackground.error = '';
+          BluetoothBackground.stopping = false;
+          return;
+        }
+      } catch (queryError) {
+        // If verification is unavailable, fail closed instead of claiming
+        // that the listener can stay alive in the background.
+      }
       BluetoothBackground.error = `background-stop-${error.code || 0}`;
       BluetoothBackground.stopping = false;
     });
