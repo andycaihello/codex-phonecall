@@ -86,7 +86,7 @@ with tempfile.TemporaryDirectory(prefix='phonebridge-incoming-offline-') as temp
     (build / 'Checks.swift').write_text(fake + main)
     subprocess.run(['swiftc', '-emit-library', '-emit-module', '-module-name', 'BridgeCore',
                     *[str(root / 'Sources/BridgeCore' / n) for n in
-                      ['Protocol.swift', 'RealtimeProtocol.swift', 'PhoneNumber.swift', 'PhonePeerConfiguration.swift']],
+                      ['Protocol.swift', 'RealtimeProtocol.swift', 'PhoneNumber.swift', 'PhonePeerConfiguration.swift', 'ManagedAudioSegmenter.swift']],
                     '-emit-module-path', str(build / 'BridgeCore.swiftmodule'),
                     '-o', str(build / 'libBridgeCore.dylib')], check=True, timeout=60)
     subprocess.run(['swiftc', '-parse-as-library', '-I', temporary, '-L', temporary, '-lBridgeCore',

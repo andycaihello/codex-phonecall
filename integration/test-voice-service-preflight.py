@@ -9,7 +9,7 @@ with tempfile.TemporaryDirectory(prefix='phonebridge-service-preflight-offline-'
     build = Path(temporary)
     subprocess.run(['swiftc', '-emit-library', '-emit-module', '-module-name', 'BridgeCore',
                     str(root / 'Sources/BridgeCore/Protocol.swift'), str(root / 'Sources/BridgeCore/RealtimeProtocol.swift'), str(root / 'Sources/BridgeCore/PhoneNumber.swift'),
-                    str(root / 'Sources/BridgeCore/PhonePeerConfiguration.swift'),
+                    str(root / 'Sources/BridgeCore/PhonePeerConfiguration.swift'), str(root / 'Sources/BridgeCore/ManagedAudioSegmenter.swift'),
                     '-emit-module-path', str(build / 'BridgeCore.swiftmodule'), '-o', str(build / 'libBridgeCore.dylib')], check=True, timeout=60)
     exe = build / 'preflight-check'
     subprocess.run(['swiftc', '-parse-as-library', '-I', str(build), '-L', str(build), '-lBridgeCore',

@@ -130,6 +130,26 @@ class Runtime:
         self.pending_user_version = -1
         self.recovery_attempted_version = -1
         self.health_problem = ""
+        self.output_track_generation = 0
+        self.output_track_missing_since = 0.0
+        self.output_track_missing_speech_since = 0.0
+
+    def output_track_started(self):
+        self.output_track_generation += 1
+        self.output_track_missing_since = 0.0
+        self.output_track_missing_speech_since = 0.0
+        return self.output_track_generation
+
+    def output_track_ended(self, generation, connected):
+        if generation != self.output_track_generation or not connected or self.done.is_set():
+            return False
+        # A remote audio track can end while the WebRTC peer and data channel
+        # remain connected. A replacement track may follow on the next turn;
+        # do not hang up an otherwise live telephone call at this boundary.
+        self.output_track_missing_since = time.monotonic()
+        self.output_track_missing_speech_since = 0.0
+        self.diagnostics["output_track_ended"] += 1
+        return True
 
     @staticmethod
     def has_speech(pcm):
@@ -145,6 +165,8 @@ class Runtime:
             return ""
         if self.last_input_at and now - self.last_input_at > 5:
             return "phone_input_missing"
+        if self.output_track_missing_speech_since and now - self.output_track_missing_speech_since > 8:
+            return "codex_output_track_missing"
         if (self.pending_user_version == self.versions["user"] and self.last_user_partial_at and
                 now - self.last_user_partial_at > 8 and now - self.last_non_silent_at > 3 and
                 self.last_assistant_at < self.last_user_partial_at):
@@ -170,6 +192,10 @@ class Runtime:
             if problem != self.health_problem:
                 self.health_problem = problem
                 self.emit("health_alert", problem=problem)
+            if (self.output_track_missing_speech_since and
+                    now - self.output_track_missing_speech_since > 20):
+                self.fail("codex_audio_stream_closed")
+                break
             if (problem == "user_turn_unfinalized" and
                     self.recovery_attempted_version != self.versions["user"]):
                 self.recovery_attempted_version = self.versions["user"]
@@ -359,6 +385,7 @@ class Runtime:
 
         @self.pc.on("track")
         def track_received(track):
+            generation = self.output_track_started()
             async def consume():
                 resampler = av.AudioResampler(format="s16", layout="mono", rate=24000)
                 try:
@@ -371,9 +398,12 @@ class Runtime:
                             if self.active and any(pcm):
                                 self.diagnostics["output_pcm_bytes"] += len(pcm)
                                 self.emit("audio", data=base64.b64encode(pcm).decode())
-                except Exception:
+                except Exception as error:
                     if not self.done.is_set():
-                        self.fail("codex_audio_stream_closed")
+                        from aiortc.mediastreams import MediaStreamError
+                        if not isinstance(error, MediaStreamError) or not self.output_track_ended(
+                                generation, self.pc.connectionState == "connected" and channel.readyState == "open"):
+                            self.fail("codex_audio_stream_closed")
             job = asyncio.create_task(consume())
             self.tasks.add(job)
             job.add_done_callback(self.tasks.discard)
@@ -422,6 +452,8 @@ class Runtime:
             if self.failed or self.done.is_set():
                 raise RuntimeError("codex_voice_start_failed")
             await asyncio.sleep(.4)
+            if self.output_track_missing_since:
+                raise RuntimeError("codex_voice_start_failed")
             self.ready.set()
             self.emit("ready", protocol="v3", transport="webrtc", speechVerified=True)
         finally:
@@ -441,6 +473,8 @@ class Runtime:
                 self.diagnostics["input_pcm_bytes"] += len(value)
                 if self.has_speech(value):
                     self.last_non_silent_at = self.last_input_at
+                    if self.output_track_missing_since and not self.output_track_missing_speech_since:
+                        self.output_track_missing_speech_since = self.last_input_at
                 self.diagnostics["input_dropped_pcm_bytes"] += self.audio.push(value)
         elif op == "begin_call":
             if not self.ready.is_set() or self.active:

@@ -82,6 +82,21 @@ class ProtocolChecks(unittest.TestCase):
         self.assertFalse(voice.has_speech(b"\0" * 960))
         self.assertTrue(voice.has_speech((1000).to_bytes(2, "little", signed=True) * 480))
 
+    def test_remote_track_end_waits_for_new_track_after_speech(self):
+        voice = runtime.Runtime()
+        voice.active = True
+        now = time.monotonic()
+        voice.last_input_at = now
+        generation = voice.output_track_started()
+        self.assertTrue(voice.output_track_ended(generation, connected=True))
+        self.assertFalse(voice.done.is_set())
+        voice.output_track_missing_speech_since = now - 9
+        self.assertEqual(voice.health(now), "codex_output_track_missing")
+        self.assertFalse(voice.output_track_ended(generation - 1, connected=True))
+        self.assertEqual(voice.output_track_started(), generation + 1)
+        self.assertEqual(voice.health(now), "")
+        self.assertFalse(voice.output_track_ended(generation + 1, connected=False))
+
     def test_end_request_is_current_call_only(self):
         for t in ("你可以挂断了", "我说你可以挂断了", "请挂断电话", "Please hang up", "You can hang up now"):
             self.assertTrue(runtime.explicit_call_end(t), t)

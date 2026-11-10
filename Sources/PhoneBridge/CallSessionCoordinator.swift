@@ -202,6 +202,7 @@ final class CallSessionCoordinator: ObservableObject {
                 switch problem {
                 case "phone_input_missing": message = "电话声音输入中断，请检查手机通话是否仍显示蓝牙。"
                 case "user_turn_unfinalized": message = "对方发言长时间未定稿，正在请求语音服务恢复；如未恢复，请对方重说。"
+                case "codex_output_track_missing": message = "Codex 语音输出暂时中断，正在等待服务恢复；请对方稍等或重说。"
                 case "turn_recovery_rejected": message = "Codex 语音服务未接受本轮恢复请求；请结束本通后重新准备语音。"
                 default: message = ""
                 }
@@ -441,7 +442,23 @@ final class CallSessionCoordinator: ObservableObject {
                 if self.incomingMode { try self.bluetooth.launchIncoming(self.controllerURL, phone: phone) }
                 else { try self.bluetooth.launch(self.controllerURL, allowedNumber: self.number, phone: phone) }
                 self.connectionNumber = self.number; self.connectionIncoming = self.incomingMode
-                _ = try await self.bluetooth.request("helper_connect", timeout: 18)
+                do {
+                    _ = try await self.bluetooth.request("helper_connect", timeout: 18)
+                } catch {
+                    // macOS can report a successful RFCOMM open status while
+                    // returning no channel object. The native controller has
+                    // already retired that attempt without owning a socket;
+                    // repeat the SDP lookup once on this same selected phone.
+                    guard error.localizedDescription.contains("RFCOMM_open_callback_without_channel; status=0;") else {
+                        throw error
+                    }
+                    try self.verifyOperation(run)
+                    self.status = "手机控制通道暂未打开，正在重新查询蓝牙服务…"
+                    self.log("首次 RFCOMM 打开未取得通道对象；在同一手机上重新查询并尝试一次。")
+                    try await Task.sleep(nanoseconds: 750_000_000)
+                    try self.verifyOperation(run)
+                    _ = try await self.bluetooth.request("helper_connect", timeout: 18)
+                }
                 try self.verifyOperation(run)
                 var ready = false
                 var initialStatusRetryAvailable = true

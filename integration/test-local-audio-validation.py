@@ -26,8 +26,8 @@ main='''
   let c = CallSessionCoordinator(), bt=BluetoothControlProcess.latest!, pcm=PCMTransport.latest!
   do { try c.prepareAudioValidation(); preconditionFailure("unconnected validation accepted") } catch { checks += 1 }
   c.offlineLocalValidationSetup();bt.isRunning=true
-  c.maximumSeconds = 0
-  do { try c.prepareAudioValidation(); preconditionFailure("unbounded duration accepted") } catch { checks += 1 }
+  c.maximumSeconds = -1
+  do { try c.prepareAudioValidation(); preconditionFailure("negative duration accepted") } catch { checks += 1 }
   c.maximumSeconds = 180
   try c.prepareAudioValidation()
   try await Task.sleep(nanoseconds:100_000_000)
@@ -89,6 +89,6 @@ with tempfile.TemporaryDirectory(prefix='phonebridge-local-audio-offline-') as d
  (app/'Info.plist').write_bytes(plistlib.dumps({'CFBundleExecutable':'checks','CFBundleIdentifier':'offline.phonebridge.validation','CFBundlePackageType':'APPL'}))
  shutil.copy2(root/'Sources/PhoneBridge/Resources/Audio/bluetooth-test.pcm',resources)
  (b/'Coordinator.swift').write_text(src);(b/'Checks.swift').write_text(f+main)
- subprocess.run(['swiftc','-emit-library','-emit-module','-module-name','BridgeCore',*[str(root/'Sources/BridgeCore'/n) for n in ['Protocol.swift','RealtimeProtocol.swift','PhoneNumber.swift','PhonePeerConfiguration.swift']],'-emit-module-path',str(b/'BridgeCore.swiftmodule'),'-o',str(b/'libBridgeCore.dylib')],check=True,timeout=60)
- subprocess.run(['swiftc','-parse-as-library','-I',d,'-L',d,'-lBridgeCore','-Xlinker','-rpath','-Xlinker',d,str(b/'Coordinator.swift'),str(root/'Sources/PhoneBridge/ConversationMode.swift'),str(b/'Checks.swift'),'-o',str(exe)],check=True,timeout=60)
+ subprocess.run(['swiftc','-emit-library','-emit-module','-module-name','BridgeCore',*[str(root/'Sources/BridgeCore'/n) for n in ['Protocol.swift','RealtimeProtocol.swift','PhoneNumber.swift','PhonePeerConfiguration.swift','ManagedAudioSegmenter.swift']],'-emit-module-path',str(b/'BridgeCore.swiftmodule'),'-o',str(b/'libBridgeCore.dylib')],check=True,timeout=60)
+ subprocess.run(['swiftc','-parse-as-library','-I',d,'-L',d,'-lBridgeCore','-Xlinker','-rpath','-Xlinker',d,str(b/'Coordinator.swift'),str(root/'Sources/PhoneBridge/ConversationMode.swift'),str(root/'Sources/PhoneBridge/CodexVoiceCaptions.swift'),str(b/'Checks.swift'),'-o',str(exe)],check=True,timeout=60)
  subprocess.run([str(exe)],check=True,timeout=15)
