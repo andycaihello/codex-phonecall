@@ -402,6 +402,9 @@ static int runBridge(const Options &o, NSMutableDictionary *r, int reportFD) {
     r[@"inputFrames8000"] = @(shared->inputFrames.load()); r[@"inputFramesQueuedToIPC8000"] = @(inputDelivered8);
     r[@"inputNonfiniteSanitized"] = @(inputSanitized); r[@"inputCallbacks"] = @(shared->inputCallbacks.load());
     r[@"outputCallbacks"] = @(shared->outputCallbacks.load()); r[@"realtimeFault"] = @(shared->fault.load());
+    r[@"outputFramesWrittenToHAL8000"] = @(shared->outputFramesWritten.load());
+    r[@"outputNonSilentFramesWrittenToHAL8000"] = @(shared->outputNonSilentFramesWritten.load());
+    r[@"outputPeakQ15"] = @(shared->outputPeakQ15.load());
     r[@"generation"] = @(outputCommands.generation); r[@"outputItems"] = @(outputCommands.items.size());
     // On stop, unsent PCM is deliberately dropped with socket close. Metadata is
     // returned through the private report; do not delay cleanup to upload audio.

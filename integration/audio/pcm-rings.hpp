@@ -2,6 +2,7 @@
 #include <array>
 #include <atomic>
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -49,6 +50,10 @@ struct SharedAudio {
     std::atomic<bool> stop{false};
     std::atomic<unsigned> fault{0};
     std::atomic<uint64_t> inputCallbacks{0}, outputCallbacks{0}, inputFrames{0};
+    // Aggregate signal evidence only. These counters never retain samples and
+    // describe HAL buffer writes, not sound delivered over the cellular call.
+    std::atomic<uint64_t> outputFramesWritten{0}, outputNonSilentFramesWritten{0};
+    std::atomic<uint32_t> outputPeakQ15{0};
     void render(float *destination, size_t count) {
         if (destination) std::memset(destination, 0, count * sizeof(float));
         if (!destination || !count || count > 8192) { fault.store(2); stop.store(true); return; }
@@ -70,9 +75,27 @@ struct SharedAudio {
         uint32_t newest = generation.load(std::memory_order_acquire);
         if (newest != active || stop.load(std::memory_order_relaxed)) {
             std::memset(destination, 0, count * sizeof(float));
-        } else for (size_t i = 0; i < itemLimit; ++i) if (contributed[i]) {
-            counters[i].deviceFrames.fetch_add(contributed[i], std::memory_order_relaxed);
-            counters[i].position8.store(positions[i], std::memory_order_release);
+        } else {
+            uint64_t written = 0, nonSilent = 0;
+            float peak = 0;
+            for (size_t i = 0; i < itemLimit; ++i) if (contributed[i]) {
+                written += contributed[i];
+                counters[i].deviceFrames.fetch_add(contributed[i], std::memory_order_relaxed);
+                counters[i].position8.store(positions[i], std::memory_order_release);
+            }
+            if (written) {
+                for (size_t i = 0; i < count; ++i) {
+                    const float amplitude = std::fabs(destination[i]);
+                    if (amplitude > 1.0f / 32768.0f) ++nonSilent;
+                    peak = std::max(peak, amplitude);
+                }
+                outputFramesWritten.fetch_add(written, std::memory_order_relaxed);
+                outputNonSilentFramesWritten.fetch_add(nonSilent, std::memory_order_relaxed);
+                const uint32_t peakQ15 = uint32_t(std::min(1.0f, peak) * 32767.0f);
+                uint32_t previous = outputPeakQ15.load(std::memory_order_relaxed);
+                while (peakQ15 > previous && !outputPeakQ15.compare_exchange_weak(
+                    previous, peakQ15, std::memory_order_relaxed)) {}
+            }
         }
         // Discard old-generation backlog even when the output buffer was empty.
         OutputFrame queued;

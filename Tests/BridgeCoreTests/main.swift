@@ -60,6 +60,26 @@ do {
     try rejects { try AudioRoutePolicy.validate(mode: .usb, input: bt, output: bt) }
     try rejects { try AudioRoutePolicy.validate(mode: .bluetooth, input: usb, output: usb) }
     print("PASS: USB duplex routing rejects built-ins, unrelated devices, missing channels and unstable identities")
+
+    var segments = ManagedAudioSegmenter()
+    try rejects { _ = try segments.append(Data(repeating: 1, count: 1)) }
+    let nearlyFull = try segments.append(Data(repeating: 1, count: ManagedAudioSegmenter.maxSegmentBytes - 2))
+    try check(nearlyFull.count == 1, "Managed audio starts one bounded output item")
+    guard case let .play(firstID, firstPCM) = nearlyFull[0] else { throw CheckFailure(message: "Missing first output item") }
+    try check(firstID == "codex-webrtc-0" && firstPCM.count == ManagedAudioSegmenter.maxSegmentBytes - 2,
+              "Managed audio first segment identity and length")
+    let boundary = try segments.append(Data(repeating: 2, count: 6))
+    try check(boundary.count == 3, "Boundary emits play, end and next play")
+    guard case let .play(lastID, lastPCM) = boundary[0], case let .end(endedID) = boundary[1],
+          case let .play(nextID, nextPCM) = boundary[2] else { throw CheckFailure(message: "Invalid output boundary sequence") }
+    try check(lastID == firstID && lastPCM.count == 2 && endedID == firstID &&
+              nextID == "codex-webrtc-1" && nextPCM.count == 4,
+              "Output item rotates before native per-item duration limit")
+    segments.interrupt()
+    let resumed = try segments.append(Data(repeating: 3, count: 2))
+    guard case let .play(resumedID, _) = resumed[0] else { throw CheckFailure(message: "Missing resumed output") }
+    try check(resumedID == "codex-webrtc-2", "Interrupted output never reuses the cleared item")
+    print("PASS: managed audio segments roll over and reset after interruption")
 } catch {
     FileHandle.standardError.write(Data("FAIL: \(error)\n".utf8))
     exit(1)

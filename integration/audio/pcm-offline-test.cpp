@@ -59,11 +59,17 @@ int main() {
     auto audio = std::make_unique<SharedAudio>(); OutputFrame queued[4] = {{.25f, 0, 1, 0}, {.5f, 0, 2, 0}, {.75f, 0, 3, 0}, {1, 0, 4, 0}};
     float buffer[4]{}; check(audio->output.push(queued, 4), "enqueue synthetic output"); audio->render(buffer, 2);
     check(buffer[0] == .25f && buffer[1] == .5f && audio->counters[0].position8.load() == 2, "playback position counts only submitted callback frames");
+    check(audio->outputFramesWritten.load() == 2 && audio->outputNonSilentFramesWritten.load() == 2 &&
+          audio->outputPeakQ15.load() >= 16383, "non-silent HAL buffer evidence counts played frames");
     audio->generation.store(1, std::memory_order_release); audio->render(buffer, 4);
     check(buffer[0] == 0 && buffer[3] == 0 && audio->output.available() == 0 && audio->clearObserved.load() == 1 && audio->counters[0].position8.load() == 2, "generation flush produces silence without advancing old item");
+    check(audio->outputFramesWritten.load() == 2 && audio->outputNonSilentFramesWritten.load() == 2,
+          "cleared generation does not inflate HAL signal evidence");
     OutputFrame fresh[2] = {{.5f, 1, 1, 1}, {.75f, 1, 2, 1}}; check(audio->output.push(fresh, 2), "enqueue acknowledged new generation"); audio->render(buffer, 4);
     check(buffer[0] == .5f && buffer[1] == .75f && buffer[2] == 0 && audio->counters[1].deviceFrames.load() == 2, "new generation playback and EOF zero fill");
     check(audio->output.push(fresh, 2), "enqueue before stop"); audio->stop.store(true); audio->render(buffer, 4);
     check(buffer[0] == 0 && buffer[1] == 0 && audio->counters[1].deviceFrames.load() == 2, "stop renders silence and never advances position");
+    check(audio->outputFramesWritten.load() == 4 && audio->outputNonSilentFramesWritten.load() == 4,
+          "stopped callback does not inflate HAL signal evidence");
     std::printf("{\"passed\":true,\"checks\":%u,\"deviceIO\":false,\"inputPassRMS\":%.9g,\"alias6kRMS\":%.9g,\"alias10kRMS\":%.9g,\"upsampled1kAmplitude\":%.9g,\"upsampled7kImage\":%.9g}\n", checks, passRMS, rejectedRMS, rejected2RMS, fundamental, image);
 }

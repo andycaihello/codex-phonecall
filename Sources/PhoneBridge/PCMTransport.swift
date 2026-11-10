@@ -112,6 +112,7 @@ final class PCMTransport {
         for key in ["stage", "authorizationBefore", "fullDuplexStarted", "ioStarted", "success", "interrupted",
                     "cleanupVerified", "identityStable", "elapsedIOSeconds", "inputFrames8000",
                     "inputFramesQueuedToIPC8000", "inputNonfiniteSanitized", "inputCallbacks", "outputCallbacks",
+                    "outputFramesWrittenToHAL8000", "outputNonSilentFramesWrittenToHAL8000", "outputPeakQ15",
                     "realtimeFault", "generation", "outputItems", "stopReason"] {
             if let value = report[key], value is String || value is NSNumber { safe[key] = value }
         }

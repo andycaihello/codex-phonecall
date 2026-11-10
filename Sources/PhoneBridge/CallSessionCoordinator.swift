@@ -84,7 +84,7 @@ final class CallSessionCoordinator: ObservableObject {
     let managedVoice = CodexManagedVoice()
     private var managedHealthWarning = ""
     let managedMicrophone = PCMMicrophonePermission()
-    private let managedStreamID = "codex-webrtc"
+    private var managedAudioSegments = ManagedAudioSegmenter()
     private var operation: Task<Void, Never>?
     private var cleanupTask: Task<Void, Never>?
     private var disconnectRequested = false
@@ -173,11 +173,27 @@ final class CallSessionCoordinator: ObservableObject {
             case .ready: self.status = "Codex 自动语音已就绪，无需手动启动桌面语音。"
             case .audio(let data):
                 guard self.mode == .codexManaged, self.callActive, self.voiceActive else { return }
-                self.pcm.play(RealtimeAudioChunk(responseID: self.managedStreamID, itemID: self.managedStreamID, contentIndex: 0, pcm16: data))
+                do {
+                    for action in try self.managedAudioSegments.append(data) {
+                        switch action {
+                        case let .play(id, pcm):
+                            self.pcm.play(RealtimeAudioChunk(responseID: id, itemID: id, contentIndex: 0, pcm16: pcm))
+                        case let .end(id):
+                            self.pcm.endPart(responseID: id, itemID: id, contentIndex: 0)
+                        }
+                    }
+                } catch {
+                    self.error = "Codex 语音输出格式错误，通话正在停止。"
+                    self.hangup()
+                }
             case let .transcript(id, role, text, final):
                 guard self.mode == .codexManaged, self.callActive, self.voiceActive else { return }
                 self.updateTranscript(id: "managed-" + id, role: role == "assistant" ? "AI" : "对方", text: text, final: final)
-            case .interrupted: if self.mode == .codexManaged { _ = self.pcm.interrupt() }
+            case .interrupted:
+                if self.mode == .codexManaged {
+                    _ = self.pcm.interrupt()
+                    self.managedAudioSegments.interrupt()
+                }
             case .hangupRequested:
                 if self.mode == .codexManaged, self.ownsActiveCall { self.hangup() }
             case .healthAlert(let problem):

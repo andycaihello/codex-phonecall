@@ -150,6 +150,8 @@
     if (/电话声音输入中断/.test(message)) return '确认手机通话页面仍选中蓝牙；通话结束后在控制台重新连接并查看语音健康计数。';
     if (/发言长时间未定稿/.test(message)) return '系统正在尝试一次恢复。若几秒内没有回应，请对方重说；通话后检查语音健康计数。';
     if (/未接受本轮恢复请求/.test(message)) return '通话结束后重新准备 Codex 自动语音，保留本轮诊断记录供排查。';
+    if (/fresh-acl-not-verified/.test(message)) return 'Mac 无法建立到手机的基础蓝牙连接。请确认手机在附近、蓝牙已开启，并打开手机通话桥检查待命状态；然后从 Mac 控制台重试连接。';
+    if (/RFCOMM_open_callback_without_channel/.test(message)) return 'Mac 读到了手机通话桥的服务记录，但没有取得可用控制通道。请在手机通话桥检查待命或会话状态；若服务已停止，先恢复手机端服务，再从 Mac 控制台连接。';
     if (/手机蓝牙通话桥未回应|helper_command_timeout:status/.test(message)) return '蓝牙配对或基础连接已存在，但手机 App 的控制服务未回应。若手机通话桥已打开，可直接点「连接手机」再试；若 App 已被系统结束，需要先在手机打开一次。';
     if (/关闭未完全确认|清理尚未确认/.test(message)) return '旧进程已退出。点击「连接手机」重新核实；若手机伴侣没有回应，需先让它恢复运行。';
     if (/接听|来电/.test(message)) return '先确认这一通来电是否已结束；重新连接只核实状态，不会自动接听下一通。';

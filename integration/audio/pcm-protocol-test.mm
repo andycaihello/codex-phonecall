@@ -22,8 +22,11 @@ int main() { @autoreleasepool {
     while (shared->output.available()) shared->render(buffer, 4);
     check(shared->counters[1].position8.load() == 2, "FIR tail cannot advance truncation beyond source duration");
     chunk[@"generation"] = @1; check(!commands.command(chunk), "finished identity cannot reopen");
+    chunk[@"response_id"] = @"resp-2"; chunk[@"item_id"] = @"item-2";
+    check(commands.command(chunk) && commands.items.size() == 3,
+          "next bounded managed segment opens after output_end in the same generation");
     auto shared2 = std::make_unique<SharedAudio>(); PrivateIPC ipc2; OutputCommands commands2(*shared2, ipc2);
     chunk[@"generation"] = @YES; check(!commands2.command(chunk), "boolean is not generation");
     chunk[@"generation"] = @0; [chunk removeObjectForKey:@"generation"]; check(!commands2.command(chunk), "generation is required");
-    puts("{\"passed\":true,\"checks\":12,\"deviceIO\":false,\"socketConnected\":false,\"appKitInitialized\":false}"); return 0;
+    puts("{\"passed\":true,\"checks\":13,\"deviceIO\":false,\"socketConnected\":false,\"appKitInitialized\":false}"); return 0;
 } }

@@ -7,6 +7,8 @@ description: Use when the user asks to open the PhoneBridge web console in Codex
 
 Use the plugin's `phonebridge_*` MCP tools. A local background service manages the phone and native audio. Its web console is the user interface; a separate Mac application window is not required. Do not run old HDC, acoustic, raw AT, or experimental audio scripts.
 
+If this skill is available but no `phonebridge_*` tools appear in the current tool inventory, check `codex mcp list` for an enabled `phonebridge` server. When it is enabled, invoke the same adapter through `plugins/phonebridge/scripts/mcp-fallback.py` in the installed plugin folder: pipe one JSON object containing `name` and `arguments` to stdin, then inspect its `isError` and result. This preserves the adapter's validation and authenticated local backend. Do not claim the call is unavailable merely because the tool namespace was omitted; do not use the fallback if the server is disabled or missing. Never put runtime credentials or the local console URL in chat or shell arguments.
+
 ## Open the console in Codex
 
 Call `phonebridge_open_console()` to get `consoleURL`. This explicit tool may start the fixed PhoneBridge backend in the background and waits up to 8 seconds. It does not open an external browser, connect the phone, dial, or start audio. Other status and call tools do not implicitly start the backend; `phonebridge_open_app` remains available for compatibility.
